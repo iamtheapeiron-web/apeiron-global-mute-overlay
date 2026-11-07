@@ -1,0 +1,74 @@
+APEIRON Global Mute Overlay v0.1.0-beta.1
+Windows file/build revision: 0.1.0.8
+Verification date: 2026-11-07 (Asia/Tbilisi)
+
+STATUS
+Beta build prepared for owner review before publication.
+The owner checked RC1 scenarios 2 and 3 and reported no observed blockers.
+Additional device/game checks are optional and will continue through feedback.
+
+SCOPE
+Beta version and documentation update only; runtime behavior matches RC1.
+One shared blocking switch, retained individual choices and readable key captions.
+
+RESULTS
+PASS: complete Windows x64 .NET GUI application compiled.
+PASS: 66,570 assertions against the compiled production EXE.
+Includes 462 parameter combinations and 20,000 repeatable seeded actions.
+PASS: x64 GUI/CLR entry point, NX/ASLR, seven embedded icon sizes,
+public ProductVersion 0.1.0-beta.1, numeric file/native/manifest revision 0.1.0.8,
+asInvoker and DPI-aware manifest. Compiled assembly metadata is also checked.
+
+NEW MASTER-BLOCKING CHECKS
+128 combinations of original mute, individual Toggle/Hold enable preferences,
+individual blocking choices, pause and master blocking verify:
+- Fresh down/up routing matches the active choice for each key.
+- Master bypass passes both keys through without disabling their actions.
+- Toggle repeats do not retrigger audio.
+- Hold uses and restores the original state with either master position.
+- Master changes cause no audio or recovery writes.
+- Neither master nor pause overwrites any individual choice.
+
+Additional production-policy/controller integration verifies:
+- Changing master during an active Hold preserves its temporary microphone
+  state and performs no extra audio/recovery work.
+- The current physical press keeps repeat/up routing paired with its down.
+- The next press follows the changed master policy.
+- Pause restores Hold after a master change and overrides new blocking.
+- Enabling master while paused does not consume new presses.
+- Resuming cannot turn an already-held pass-through key into Hold.
+- Primary mouse clicks remain unblocked.
+- Save during pause/master bypass retains the individual choices and VK 192.
+- A new session clears pause and restores master enable by default.
+- Grave-key, number-row/numpad and modifier captions remain distinguishable.
+- Public Beta and compiled assembly build revision agree.
+
+WINDOWS WIRING REVIEW (NOT WINDOWS EXECUTION)
+- Tray has one shared Block keys in other apps item and a separate Pause item.
+- Both switches are mirrored in Controls; individual options remain editable.
+- SyncInput passes effective pause/master/individual flags to native hooks.
+- The Controls summary explains effective blocking; tray item tooltip mirrors it.
+- Existing press routing remains latched by KeySuppression across reconfiguration.
+- Copy diagnostics includes master state, effective blocking and readable bindings.
+- The single APEIRON tray icon remains static; no new status icons were added.
+- No new audio polling timer, runtime dependency or per-press file is introduced.
+
+RETAINED REGRESSIONS / COMPATIBILITY
+Settings schema remains 3. Existing selected device, custom bindings, appearance,
+startup/admin preferences and recovery choices are not reset.
+All Toggle/Hold overlay rules and durations, previews/placement, optional recovery,
+200 memory-only cycles without recovery-file writes, legacy recovery, exact-device
+disconnect/reconnect, write confirmation/failures, COM identities/layouts, mailbox
+event ordering and elevation policies remain covered by the passing suite.
+
+LIMITS / NEXT VALIDATION
+Tests use fake audio and portable input/policy models. Actual Windows Core Audio,
+keyboard/mouse hooks, tray/UI/DPI, startup, token/UAC, sleep/lock and games were
+not executed in this build environment. Owner reports concern alpha and RC1 builds;
+they do not establish compatibility with other hardware.
+No latency/CPU/RAM benchmark is claimed.
+WINDOWS_CHECKLIST_RU.txt is an optional compatibility guide. Report an action,
+expected/actual behavior and Copy diagnostics after any failure.
+
+DELIVERY EXE SHA256
+0aca48550720e9aaf11fd676365c675512bce80bacd223bc12784a3dcd932780

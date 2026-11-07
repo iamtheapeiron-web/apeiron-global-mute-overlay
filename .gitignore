@@ -1,0 +1,8 @@
+Build/
+*.user
+*.suo
+__pycache__/
+*.pyc
+settings.xml
+hold-recovery.xml
+last-error.log
