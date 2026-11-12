@@ -104,29 +104,7 @@ public static partial class Tests {
         for (int i = 0; i < normal.Length; i++) Assert(normal[i].Value == i && !String.IsNullOrEmpty(normal[i].ToString()), "Normal dropdown retains stable enum values");
         for (int i = 0; i < hold.Length; i++) Assert(hold[i].Value == i && !String.IsNullOrEmpty(hold[i].ToString()), "Hold dropdown retains stable enum values");
         Assert(normal[1].ToString() != normal[3].ToString(), "Brief muted display and persistent muted display have distinct labels");
-        settings = new Settings(); var changes = new SettingsChangeTracker(settings);
-        Assert(!changes.HasChanges(settings), "Loaded settings start clean");
-        foreach (var field in typeof(Settings).GetFields(BindingFlags.Instance | BindingFlags.Public)) {
-            if (field.Name == "SchemaVersion" || field.Name == "DeviceName") continue;
-            object original = field.GetValue(settings), changed;
-            if (field.FieldType == typeof(bool)) changed = !(bool)original;
-            else if (field.FieldType == typeof(int)) changed = (int)original + 1;
-            else if (field.FieldType == typeof(double)) changed = (double)original + .1;
-            else if (field.FieldType == typeof(string)) changed = (string)original + "changed";
-            else if (field.FieldType.IsEnum) changed = Enum.ToObject(field.FieldType, Convert.ToInt32(original) + 1);
-            else throw new Exception("Uncovered setting type: " + field.Name);
-            field.SetValue(settings, changed); Assert(changes.HasChanges(settings), "Dirty state notices: " + field.Name);
-            field.SetValue(settings, original); Assert(!changes.HasChanges(settings), "Reverting clears dirty state: " + field.Name);
-        }
-        settings.DeviceName = "Driver refreshed its display name"; settings.SchemaVersion = 999;
-        Assert(!changes.HasChanges(settings), "Automatic device-name and schema updates are not user edits");
-        settings.KeyBlockingEnabled = true; Assert(changes.HasChanges(settings), "Hotkey/tray master changes require Save for persistence");
-        changes.Accept(settings); Assert(!changes.HasChanges(settings), "Successful save accepts the current settings");
         using (var f = new Fixture(false, true)) {
-            var tracker = new SettingsChangeTracker(f.S);
-            f.C.Preview(true); f.C.Toggle(); f.C.BeginHold(); f.C.ReleaseHold(); f.Router.SetPaused(true, false, false);
-            Assert(!tracker.HasChanges(f.S), "Preview, mute actions, Hold and session pause never mark settings dirty");
-            f.Router.SetPaused(false, false, false);
             Assert(InputStatusText.Blocking(f.Router) == Ui.Text("Key blocking off"), "Status reports actual default-off blocking");
             f.Router.KeyBlockingEnabled = true; Assert(InputStatusText.Blocking(f.Router) == Ui.Text("Both keys blocked"), "Status reports both enabled microphone keys");
             f.S.ToggleEnabled = false; Assert(InputStatusText.Blocking(f.Router) == Ui.Text("Blocked: Hold"), "Only the enabled Hold key is blocked");

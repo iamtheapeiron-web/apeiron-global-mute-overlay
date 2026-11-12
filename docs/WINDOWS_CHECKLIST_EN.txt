@@ -1,0 +1,44 @@
+﻿APEIRON Global Mute Overlay v0.1.0-beta.5 EN - short Windows check
+
+1. Upgrade
+Exit the old version from its tray. Extract the EN archive and run the EXE.
+Check that the microphone, bindings and appearance are preserved.
+There are no individual blocking checkboxes. The shared switch uses its saved value.
+
+2. Shared blocking
+Enable Toggle and Hold. For a visible check, assign Hold a printable key such as `.
+With master blocking off, press it in Notepad: it should type, and Hold should
+change the microphone state temporarily and restore it on release.
+With master blocking on, it should still control the mic but no longer type.
+With both actions enabled, the status reads Both keys blocked.
+Disable the Hold action itself: its key should type even with master blocking on.
+Restore your preferred bindings afterwards.
+
+3. Single key and combinations
+Assign a free F8 to blocking. Press it: the master switch changes, the mic does not.
+Keep F8 down: only one change. Release and press again: one further change.
+Assigning a single command key already stored for the mic should be rejected.
+An existing Ctrl/Alt/Shift + key combination should still work.
+
+4. Modifier pairs
+Assign Left + Right Shift. Press both, in either order. The second press completes
+the command. Hold both: no repeat. Release just one and press it again: no new command.
+Release both and press again: the next command works.
+Repeat for Left + Right Ctrl and Left + Right Alt.
+The first modifier can perform its ordinary action in the foreground app/game.
+Check your chosen command in your game, with suitable privileges.
+
+5. Hold and pause
+Hold the microphone key, use another command to toggle blocking, then release Hold.
+The original microphone state should return. Pause operation in the window and tray
+should also restore Hold. While paused, commands are inactive and keys work in other
+apps. Clear the pause checkbox: fresh assigned presses work again.
+
+6. Saving and languages
+There is no unsaved-changes label. Change master blocking, the command binding and
+an appearance setting. Save settings, exit and restart: those choices should persist;
+pause should clear. Exit and open the other language build: settings should remain.
+Check that all controls are accessible at your Windows display scale.
+
+For an issue: steps, expected/actual result, Windows, microphone, game,
+and General - Copy diagnostics.

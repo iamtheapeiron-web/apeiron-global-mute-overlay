@@ -2,22 +2,22 @@
 
 C# WinForms / .NET Framework 4.x / Windows x64. No NuGet packages.
 
-For this RU iteration:
+Both languages, with tests:
 
 ```sh
-python3 build.py --mono-root /absolute/mono/prefix --language ru --tests
+python3 build.py --mono-root /absolute/mono/prefix --language both --tests
 ```
 
-A supplied Mono prefix needs mono-sgen, mcs, framework/GAC assemblies, etc/mono/config and mingw windres. The RU output is `Build/RU/APEIRON_Global_Mute_Overlay.exe`. Tests reference that exact executable; PE resources and manifest are verified separately.
+The portable prefix needs mono-sgen, mcs, framework/GAC assemblies, etc/mono/config and mingw windres. Output: `Build/RU/APEIRON_Global_Mute_Overlay.exe` and `Build/EN/APEIRON_Global_Mute_Overlay.exe`. Tests reference each exact EXE; PE resources and manifests are verified separately.
 
-On Windows with Python installed:
+On Windows with Python:
 
 ```text
-python build.py --language ru --tests
+python build.py --language both --tests
 ```
 
-The existing `build.cmd` / `build.cmd test` runner compiles both language variants using Windows .NET Framework csc and explicit UTF-8 encoding. EN beta.4 has not been built or tested in this iteration. The RU define is `APEIRON_RU`; language is not stored as a setting.
+`build.cmd` and `build.cmd test` also compile both variants with Windows .NET Framework csc and explicit UTF-8 encoding. The RU define is `APEIRON_RU`; the language is not a saved setting.
 
-Optional Linux layout preview: [Tests/UI/README.md](Tests/UI/README.md). It isolates Windows integration and uses a compatibility icon; it is not shipped in the archive.
+[Optional Linux layout preview](Tests/UI/README.md) isolates Windows integration and uses a compatibility icon. The preview executable is never shipped.
 
-Version: 0.1.0-beta.4. Windows/assembly/manifest revision: 0.1.0.11. Settings schema: 6.
+Public version: 0.1.0-beta.5. Windows/assembly/manifest revision: 0.1.0.12. Settings schema: 6.

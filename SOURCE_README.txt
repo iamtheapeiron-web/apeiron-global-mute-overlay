@@ -1,12 +1,11 @@
-APEIRON Global Mute Overlay v0.1.0-beta.4 RU
+APEIRON Global Mute Overlay v0.1.0-beta.5 RU / EN
 C# WinForms / .NET Framework 4.x / Windows x64 / MIT.
 
-Only RU was built and tested in this iteration. See BUILDING.md.
-Settings schema 6 removes per-action blocking preferences and adds an optional
-second physical key for L/R modifier-pair commands. Existing modifier commands
-and the saved master blocking value are preserved.
-BlockingShortcut.cs owns single/chord/pair recognition and latched physical routes.
-Tests/UnifiedHotkeyCases.cs covers unified blocking migration, single/pair commands,
-conflicts, modifier ordering, repeat prevention, queued commands and active Hold.
-The memory-only recovery and compact settings UI from beta.3 remain.
-Tests/UI is a layout-only development harness, not part of the runtime archive.
+Both language variants were built and tested separately. See BUILDING.md.
+The pause label and explanation are consistent between Controls and the tray.
+There is no unsaved-changes tracker or marker. Save settings still uses the
+same normalization, startup-setting and atomic XML persistence path.
+Settings schema remains 6. One blocking switch covers enabled mic hotkeys;
+commands support a single key, modifier combinations and L/R modifier pairs.
+Memory-only Hold recovery and the compact appearance UI remain.
+Tests/UI is a development-only layout harness; never include it in runtime ZIPs.

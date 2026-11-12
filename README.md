@@ -1,16 +1,31 @@
 # APEIRON Global Mute Overlay
 
-**0.1.0-beta.4 RU** is a Russian test build for Windows 10/11 x64. MIT.
-The English executable for this iteration has not been built or validated.
+**0.1.0-beta.5** - separate RU and EN builds for Windows 10/11 x64. MIT.
+The archive filename identifies the language; no in-app language switch.
 
-This update unifies key blocking: the shared switch blocks all enabled microphone hotkeys, without individual Toggle/Hold blocking preferences. Disabled actions do not reserve their keys. Fresh settings default to blocking off; an existing saved master value is preserved.
+## Beta.5 changes
 
-The blocking command accepts one ordinary keyboard key, a Ctrl/Alt/Shift combination, or simultaneous left+right Shift, Alt or Ctrl. The second side completes a pair; both sides must be released before another pair command. The first modifier retains its ordinary application behavior. A single command key must differ from both mic bindings; modifier conflicts with enabled actions are rejected.
+- Simplified pause wording in Controls and the tray. Clear the checkbox to resume assigned-key commands.
+- Pause details and its automatic reset at restart are in the tooltip.
+- Removed the unsaved-changes label and its tracking. Save settings still persists your choices.
+- Both builds have matching features and share settings.
 
-Commands change only key blocking, preserving active Hold and microphone state. Existing modifier combinations, microphone selection, visuals and placement survive migration. Save settings to persist the command and master state. Pause remains session-only. The compact UI and memory-only Hold recovery from beta.3 remain.
+## Controls
 
-[Russian documentation](README_RU.md) · [Windows checklist](docs/WINDOWS_CHECKLIST_RU.txt) · [Test report](TEST_REPORT.txt) · [Building](BUILDING.md).
+Toggle changes the selected Windows device's mute state. Hold temporarily reverses it and restores the original state on release.
+One master blocking switch applies to all enabled microphone hotkeys. Disabled actions do not reserve keys. Blocking defaults off without a saved choice.
+The blocking command supports one ordinary key, Ctrl/Alt/Shift + key, or both sides of Shift, Alt or Ctrl together. A pair fires on its second modifier and requires both sides released before repeating. The first modifier retains its normal app behavior.
 
-Automated checks use a fake audio backend. The RU layout was inspected under Mono/Linux. Real Windows audio, input hooks, shortcut capture, UAC and games remain unverified here. This development branch is not a published release.
+The compact appearance UI, display-rule dropdowns, 0-95% transparency, color swatches and memory-only Hold recovery remain. New Holds do not create a recovery file. No extra tray icons.
 
-[Releases](https://github.com/iamtheapeiron-web/apeiron-global-mute-overlay/releases) · [Website](https://apeiron.framer.media/) · [Support](https://www.paypal.com/paypalme/StanislavMed)
+## Update and validation
+
+Exit the old version from its tray, extract your chosen archive and run the EXE. Your device, bindings and appearance are preserved. Use Save settings to keep changes. Pause clears at restart.
+
+Automated checks passed separately against both production EXEs. Layouts were inspected under Mono/Linux. Real Windows audio, global hooks, hotkey capture, UAC and games were not exercised here.
+
+[English instructions](docs/README_EN.txt) · [RU](docs/README_RU.txt) · [Windows checklist EN](docs/WINDOWS_CHECKLIST_EN.txt) · [RU](docs/WINDOWS_CHECKLIST_RU.txt) · [Test report](TEST_REPORT.txt) · [Building](BUILDING.md).
+
+This branch contains the prepared builds' source. [Published releases](https://github.com/iamtheapeiron-web/apeiron-global-mute-overlay/releases).
+
+[Website](https://apeiron.framer.media/) | [Support](https://www.paypal.com/paypalme/StanislavMed)

@@ -55,17 +55,17 @@ def verify(path):
     group = next(v for k,v in resources.items() if k[0] == 14)
     assert len(icons) == 7 and struct.unpack_from('<HHH', group) == (0, 1, 7)
     version = next(v for k,v in resources.items() if k[0] == 16)
-    for value in ['APEIRON Global Mute Overlay', '0.1.0.11', '0.1.0-beta.4']:
+    for value in ['APEIRON Global Mute Overlay', '0.1.0.12', '0.1.0-beta.5']:
         assert value.encode('utf-16le') in version, value
     fixed = version.find(struct.pack('<I', 0xfeef04bd))
-    assert fixed >= 0 and struct.unpack_from('<IIII', version, fixed+8) == (1, 11, 1, 11)
+    assert fixed >= 0 and struct.unpack_from('<IIII', version, fixed+8) == (1, 12, 1, 12)
     manifest = ET.fromstring(next(v for k,v in resources.items() if k[0] == 24))
     identity = next(n for n in manifest if n.tag.endswith('assemblyIdentity'))
-    assert identity.attrib['version'] == '0.1.0.11', 'Manifest/build revision mismatch'
+    assert identity.attrib['version'] == '0.1.0.12', 'Manifest/build revision mismatch'
     request = next(n for n in manifest.iter() if n.tag.endswith('requestedExecutionLevel'))
     assert request.attrib == {'level': 'asInvoker', 'uiAccess': 'false'}
     assert any(n.tag.endswith('dpiAware') and n.text == 'true' for n in manifest.iter())
-    print('PASS: x64 managed Windows GUI PE; NX/ASLR; valid CLR entry point; seven icon sizes; product 0.1.0-beta.4 / file 0.1.0.11; asInvoker and DPI-aware manifest.')
+    print('PASS: x64 managed Windows GUI PE; NX/ASLR; valid CLR entry point; seven icon sizes; product 0.1.0-beta.5 / file 0.1.0.12; asInvoker and DPI-aware manifest.')
     print('EXE SHA256:', hashlib.sha256(b).hexdigest())
 
 if __name__ == '__main__':

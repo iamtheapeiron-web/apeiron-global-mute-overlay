@@ -10,7 +10,6 @@ using Microsoft.Win32;
 namespace Apeiron.GlobalMute {
     public sealed class MainForm : Form {
         private readonly Settings settings;
-        private readonly SettingsChangeTracker settingsChanges;
         private readonly ToolTip hints = new ToolTip { AutoPopDelay = 12000, InitialDelay = 450, ReshowDelay = 100, ShowAlways = true };
         private readonly Controller controller;
         private readonly InputRouter input;
@@ -37,7 +36,6 @@ namespace Apeiron.GlobalMute {
         private Label deviceStatus, deviceDetails, selectionInfo, footer, toggleBinding, holdBinding, placementHint;
         private Button toggleNow, placeButton, assignBlockingButton, clearBlockingButton;
         private ColorChoice mutedColor, onColor, iconColor;
-        private Label saveState;
         private CheckBox toggleEnabled, holdEnabled, autoStart, startMinimized;
         private CheckBox offerAdminRestart;
         private CheckBox pauseHotkeys, blockKeys;
@@ -54,7 +52,6 @@ namespace Apeiron.GlobalMute {
 
         public MainForm(Settings settings, bool trayLaunch, string notice) {
             this.settings = settings;
-            settingsChanges = new SettingsChangeTracker(settings);
             recovery = new MemoryRestoreStore(new LegacyRestoreFile(Path.Combine(Program.DataDir, "hold-recovery.xml")));
             controller = new Controller(settings, new CoreAudio(), new MonotonicClock(), recovery);
             elevation = new ElevationNotice(ApeironProcessSecurity.GetElevation(ownProcessId));
@@ -82,8 +79,6 @@ namespace Apeiron.GlobalMute {
             lookStack = Page(tabs, "Appearance"); var general = Page(tabs, "General"); var about = Page(tabs, "About");
             BuildMicrophone(mic); BuildControls(controls); BuildAppearance(lookStack); BuildGeneral(general); BuildAbout(about);
             var bottom = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 1 };
-            saveState = TextLabel("There are unsaved changes"); saveState.ForeColor = Color.DarkOrange;
-            saveState.Font = new Font(Font, FontStyle.Bold); saveState.Visible = false; bottom.Controls.Add(saveState);
             footer = TextLabel(String.IsNullOrEmpty(notice) ? Ui.Text("Choose a microphone, then Save settings.") : notice);
             bottom.Controls.Add(footer);
             var buttons = Flow();
@@ -112,7 +107,6 @@ namespace Apeiron.GlobalMute {
             timer.Interval = 20; timer.Tick += delegate { TickApplication(); };
             EnsureOverlayOnScreen();
             initializing = false;
-            RefreshSaveState();
         }
         private static Icon LoadIcon() {
             using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("APEIRON.ico"))
@@ -159,9 +153,6 @@ namespace Apeiron.GlobalMute {
         }
         private void Hint(Control control, string text) {
             if (!String.IsNullOrEmpty(text)) hints.SetToolTip(control, Ui.Text(text));
-        }
-        private void RefreshSaveState() {
-            if (!initializing && saveState != null) saveState.Visible = settingsChanges.HasChanges(settings);
         }
         private TableLayoutPanel Group(TableLayoutPanel parent, string title) {
             var group = new GroupBox { Text = Ui.Text(title), AutoSize = true, Dock = DockStyle.Top, Padding = new Padding(12, 8, 12, 6) };
@@ -229,9 +220,9 @@ namespace Apeiron.GlobalMute {
         }
         private void BuildControls(TableLayoutPanel page) {
             var hotkeys = Group(page, "Hotkeys");
-            pauseHotkeys = Check("Pause hotkeys (until restart)", false); Add(hotkeys, pauseHotkeys);
-            Add(hotkeys, TextLabel("The indicator and manual controls remain active."));
-            Hint(pauseHotkeys, "Pauses Toggle, Hold and the blocking shortcut. An active Hold is restored. Pause is cleared at restart.");
+            pauseHotkeys = Check("Pause operation", false); Add(hotkeys, pauseHotkeys);
+            Add(hotkeys, TextLabel("The app will stop responding to assigned keys. Clear this checkbox to resume."));
+            Hint(pauseHotkeys, "Pauses microphone hotkeys and the blocking command. An active Hold restores the original microphone state. The indicator and the microphone button remain available. Pause is cleared at restart.");
             pauseHotkeys.CheckedChanged += delegate {
                 if (!initializing && pauseHotkeys.Checked != input.Paused) SetHotkeysPaused(pauseHotkeys.Checked);
             };
@@ -394,14 +385,14 @@ namespace Apeiron.GlobalMute {
             normalRuleList.SelectedIndexChanged += delegate {
                 if (initializing || normalRuleList.SelectedItem == null) return;
                 settings.Normal = (NormalRule)((OverlayRuleChoice)normalRuleList.SelectedItem).Value;
-                controller.RulesChanged(); Render(); RefreshSaveState();
+                controller.RulesChanged(); Render();
             };
             holdRuleList.SelectedIndexChanged += delegate {
                 if (initializing || holdRuleList.SelectedItem == null) return;
                 settings.DuringHold = (HoldRule)((OverlayRuleChoice)holdRuleList.SelectedItem).Value;
-                controller.RulesChanged(); Render(); RefreshSaveState();
+                controller.RulesChanged(); Render();
             };
-            duration.ValueChanged += delegate { if (!initializing) { settings.PopupSeconds = (double)duration.Value; RefreshSaveState(); } };
+            duration.ValueChanged += delegate { if (!initializing) { settings.PopupSeconds = (double)duration.Value; } };
         }
         private static ComboBox RuleList(OverlayRuleChoice[] choices, int selected) {
             var list = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill, DropDownWidth = 480 };
@@ -439,7 +430,7 @@ namespace Apeiron.GlobalMute {
             settings.Shape = ((LocalizedChoice)shapes.SelectedItem).Id; settings.Size = (int)size.Value;
             settings.Transparency = (int)transparency.Value;
             settings.MutedColor = mutedColor.HexValue; settings.OnColor = onColor.HexValue; settings.IconColor = iconColor.HexValue;
-            appearanceDirty = true; Render(); RefreshSaveState();
+            appearanceDirty = true; Render();
         }
         private static string ColorHex(string value) {
             var c = ColorTranslator.FromHtml(value); return String.Format("#{0:X2}{1:X2}{2:X2}", c.R, c.G, c.B);
@@ -449,7 +440,7 @@ namespace Apeiron.GlobalMute {
             Rectangle r = screen.WorkingArea; int margin = 24;
             settings.X = corner.Contains("right") ? r.Right - settings.Size - margin : r.Left + margin;
             settings.Y = corner.Contains("Bottom") ? r.Bottom - settings.Size - margin : r.Top + margin;
-            appearanceDirty = true; controller.Preview(controller.Muted ?? true); Render(); RefreshSaveState();
+            appearanceDirty = true; controller.Preview(controller.Muted ?? true); Render();
         }
         private void FinishPlacement() {
             if (!controller.Placement) return;
@@ -460,7 +451,7 @@ namespace Apeiron.GlobalMute {
             foreach (Control c in lookStack.Controls) c.Enabled = true;
             placeButton.Text = Ui.Text("Place by dragging"); placeButton.UseVisualStyleBackColor = true;
             placeButton.BackColor = SystemColors.Control; placeButton.ForeColor = SystemColors.ControlText; placeButton.Font = Font;
-            placementHint.Text = Ui.Text("Position applied. Save settings to keep it."); appearanceDirty = true; Render(); RefreshSaveState();
+            placementHint.Text = Ui.Text("Position applied. Save settings to keep it."); appearanceDirty = true; Render();
         }
         private void EnsureOverlayOnScreen() {
             Rectangle bounds = new Rectangle(settings.X, settings.Y, settings.Size, settings.Size);
@@ -473,14 +464,14 @@ namespace Apeiron.GlobalMute {
                 elevation.OwnElevation == false ? Ui.Text("Running without Administrator rights.") : Ui.Text("Could not determine current Administrator status."));
             privilegeStatus.Font = new Font(Font, FontStyle.Bold); Add(adminGroup, privilegeStatus);
             offerAdminRestart = Check("Ask about Administrator rights at startup", settings.OfferAdministratorRestart); Add(adminGroup, offerAdminRestart);
-            offerAdminRestart.CheckedChanged += delegate { if (!initializing) { settings.OfferAdministratorRestart = offerAdminRestart.Checked; RefreshSaveState(); } };
+            offerAdminRestart.CheckedChanged += delegate { if (!initializing) { settings.OfferAdministratorRestart = offerAdminRestart.Checked; } };
             var restart = Button("Restart as Administrator", RestartElevated); restart.Enabled = elevation.OwnElevation != true; Add(adminGroup, restart);
             Add(adminGroup, TextLabel("When enabled, startup offers an Administrator restart unless the app is already elevated. The question appears once per session. Foreground privilege monitoring still shows mismatch warnings. Restart saves current settings first; Windows asks for elevation."));
             autoStart = Check("Start with Windows (in the tray)", settings.AutoStart); Add(page, autoStart);
             startMinimized = Check("Start minimized when opened manually", settings.StartMinimized); Add(page, startMinimized);
             Add(page, TextLabel("Startup changes take effect when you Save settings. Keep the EXE at its final location before enabling startup."));
-            autoStart.CheckedChanged += delegate { if (!initializing) { settings.AutoStart = autoStart.Checked; RefreshSaveState(); } };
-            startMinimized.CheckedChanged += delegate { if (!initializing) { settings.StartMinimized = startMinimized.Checked; RefreshSaveState(); } };
+            autoStart.CheckedChanged += delegate { if (!initializing) { settings.AutoStart = autoStart.Checked; } };
+            startMinimized.CheckedChanged += delegate { if (!initializing) { settings.StartMinimized = startMinimized.Checked; } };
             Add(page, Button("Open settings folder", delegate { Process.Start(new ProcessStartInfo("explorer.exe", "\"" + Program.DataDir + "\"") { UseShellExecute = true }); }));
             Add(page, Button("Copy diagnostics", CopyDiagnostics));
             Add(page, Button("Reset settings", delegate {
@@ -516,7 +507,8 @@ namespace Apeiron.GlobalMute {
             var menu = new ContextMenuStrip();
             menu.Items.Add(Ui.Text("Settings"), null, delegate { ShowSettings(); });
             menu.Items.Add(new ToolStripSeparator());
-            trayPause = new ToolStripMenuItem(Ui.Text("Pause hotkeys"));
+            trayPause = new ToolStripMenuItem(Ui.Text("Pause operation"));
+            trayPause.ToolTipText = Ui.Text("Pauses microphone hotkeys and the blocking command. An active Hold restores the original microphone state. The indicator and the microphone button remain available. Pause is cleared at restart.");
             trayPause.Click += delegate { SetHotkeysPaused(!input.Paused); }; menu.Items.Add(trayPause);
             trayBlocking = new ToolStripMenuItem(Ui.Text("Block keys in other apps"));
             trayBlocking.Click += delegate { SetKeyBlockingEnabled(!input.KeyBlockingEnabled); }; menu.Items.Add(trayBlocking);
@@ -543,7 +535,6 @@ namespace Apeiron.GlobalMute {
             ApeironGlobalInput.UpdateBlocking(input.BlockToggleKey, input.BlockHoldKey); UpdateHotkeyControls();
             footer.Text = Ui.Text(enabled ? "Key blocking enabled." : "Key blocking off.");
             if (input.Paused) footer.Text += Ui.Text(" Hotkeys are currently paused.");
-            RefreshSaveState();
         }
         private void UpdateHotkeyControls() {
             pauseHotkeys.Checked = input.Paused;
@@ -563,7 +554,7 @@ namespace Apeiron.GlobalMute {
         }
         private bool TrySaveSettings() {
             FinishPlacement();
-            try { settings.Normalize(); Startup.Set(settings.AutoStart); XmlFiles.Write(Program.SettingsPath, settings); settingsChanges.Accept(settings); RefreshSaveState(); footer.Text = Ui.Text("Settings saved."); return true; }
+            try { settings.Normalize(); Startup.Set(settings.AutoStart); XmlFiles.Write(Program.SettingsPath, settings); footer.Text = Ui.Text("Settings saved."); return true; }
             catch (Exception ex) { footer.Text = Ui.Text("Could not save settings: ") + ex.Message; Program.Log(ex); return false; }
         }
         private void HideSettings() { FinishPlacement(); Hide(); }
@@ -623,7 +614,7 @@ namespace Apeiron.GlobalMute {
             ApeironGlobalInput.ClearPresses(); input.Sync(ApeironGlobalInput.IsActionKeyDown(settings.ToggleKey), ApeironGlobalInput.IsActionKeyDown(settings.HoldKey));
             ApeironGlobalInput.ConfigureWakeup(settings.ToggleKey, settings.HoldKey, input.ToggleEnabled, input.HoldEnabled, input.BlockToggleKey, input.BlockHoldKey,
                 settings.BlockingShortcutKey, settings.BlockingShortcutModifiers, settings.BlockingShortcutSecondKey, settings.BlockingShortcutEnabled && !input.Paused, QueueControlInput);
-            UpdateHotkeyControls(); RefreshSaveState();
+            UpdateHotkeyControls();
         }
         private void QueueControlInput() {
             // Runs on the hook thread: queue only; never do audio, disk I/O or UI work here.

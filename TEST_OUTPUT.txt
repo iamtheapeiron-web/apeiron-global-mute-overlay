@@ -1,5 +1,10 @@
-PASS: 353 parameter combinations; 20,000 seeded actions; 66103 assertions against the compiled production EXE.
+PASS: 353 parameter combinations; 20,000 seeded actions; 66050 assertions against the compiled production EXE.
 Real Windows Core Audio, global input/UAC, GUI/DPI, tray/taskbar, startup and games were not executed.
-PASS: x64 managed Windows GUI PE; NX/ASLR; valid CLR entry point; seven icon sizes; product 0.1.0-beta.4 / file 0.1.0.11; asInvoker and DPI-aware manifest.
-EXE SHA256: c83a952b997babc0526ca5686da3142af462cdab392681e2c4cc88495363c6e5
+PASS: x64 managed Windows GUI PE; NX/ASLR; valid CLR entry point; seven icon sizes; product 0.1.0-beta.5 / file 0.1.0.12; asInvoker and DPI-aware manifest.
+EXE SHA256: e63c8f5e5fb8258d011f38793f0a252adf16a9614d03034f9160be9aa514c82e
+PASS: 353 parameter combinations; 20,000 seeded actions; 66050 assertions against the compiled production EXE.
+Real Windows Core Audio, global input/UAC, GUI/DPI, tray/taskbar, startup and games were not executed.
+PASS: x64 managed Windows GUI PE; NX/ASLR; valid CLR entry point; seven icon sizes; product 0.1.0-beta.5 / file 0.1.0.12; asInvoker and DPI-aware manifest.
+EXE SHA256: b9aa71bb13618b7006aa40734910c13f1f83cc522cd025ceb977cadba997a45f
+Built: /workspace/scratch/e710a4809834/global_mute/Build/EN/APEIRON_Global_Mute_Overlay.exe
 Built: /workspace/scratch/e710a4809834/global_mute/Build/RU/APEIRON_Global_Mute_Overlay.exe

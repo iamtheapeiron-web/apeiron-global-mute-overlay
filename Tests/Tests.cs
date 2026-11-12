@@ -603,8 +603,8 @@ public static partial class Tests {
         Assert(KeyNames.Format(17, "ControlKey") == "Ctrl" && KeyNames.Format(162, "LControlKey") == Ui.Text("Left Ctrl") &&
             KeyNames.Format(163, "RControlKey") == Ui.Text("Right Ctrl"), "Generic and left/right modifiers keep distinct readable captions");
         var assembly = typeof(Controller).Assembly;
-        Assert(assembly.GetName().Version.ToString() == "0.1.0.11" &&
-            ((AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(assembly, typeof(AssemblyInformationalVersionAttribute))).InformationalVersion == "0.1.0-beta.4",
+        Assert(assembly.GetName().Version.ToString() == "0.1.0.12" &&
+            ((AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(assembly, typeof(AssemblyInformationalVersionAttribute))).InformationalVersion == "0.1.0-beta.5",
             "Delivery assembly revision and public beta version agree");
     }
     public static int Main() {

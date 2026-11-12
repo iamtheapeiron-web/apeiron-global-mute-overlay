@@ -1,27 +1,4 @@
-using System;
-using System.Reflection;
-
 namespace Apeiron.GlobalMute {
-    // Capture values without serialization or disk I/O. Only user settings count;
-    // a device's refreshed display name and schema migration are not user edits.
-    public sealed class SettingsChangeTracker {
-        private static readonly FieldInfo[] Fields = typeof(Settings).GetFields(BindingFlags.Instance | BindingFlags.Public);
-        private object[] saved;
-        public SettingsChangeTracker(Settings settings) { Accept(settings); }
-        public void Accept(Settings settings) {
-            var values = new object[Fields.Length];
-            for (int i = 0; i < Fields.Length; i++) values[i] = Fields[i].GetValue(settings);
-            saved = values;
-        }
-        public bool HasChanges(Settings settings) {
-            for (int i = 0; i < Fields.Length; i++) {
-                if (Fields[i].Name == "SchemaVersion" || Fields[i].Name == "DeviceName") continue;
-                if (!Object.Equals(saved[i], Fields[i].GetValue(settings))) return true;
-            }
-            return false;
-        }
-    }
-
     public sealed class OverlayRuleChoice {
         public int Value { get; private set; }
         private readonly string title;

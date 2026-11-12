@@ -1,3 +1,10 @@
+## 0.1.0-beta.5 RU / EN
+
+- Simplify pause text in Controls and the tray; keep details in tooltips.
+- Remove the unsaved-changes label and change tracker; retain explicit Save settings.
+- Build and validate both language variants with matching features and shared settings.
+- Revision 0.1.0.12; settings schema stays 6.
+
 ## 0.1.0-beta.4 RU
 
 - Unified blocking for all enabled mic hotkeys; removed individual Toggle/Hold blocking preferences.

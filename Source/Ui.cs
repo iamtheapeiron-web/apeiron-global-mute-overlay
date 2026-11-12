@@ -8,6 +8,9 @@ namespace Apeiron.GlobalMute {
 #if APEIRON_RU
         public const string LanguageCode = "RU";
         private static readonly Dictionary<string, string> Russian = new Dictionary<string, string> {
+            { "Pause operation", "Приостановить работу" },
+            { "The app will stop responding to assigned keys. Clear this checkbox to resume.", "Программа перестанет реагировать на назначенные клавиши. Снимите галочку, чтобы возобновить работу." },
+            { "Pauses microphone hotkeys and the blocking command. An active Hold restores the original microphone state. The indicator and the microphone button remain available. Pause is cleared at restart.", "Отключает горячие клавиши микрофона и команду блокировки. Активное удержание завершается с восстановлением исходного состояния микрофона. Индикатор и кнопка на вкладке «Микрофон» продолжают работать. После перезапуска пауза автоматически снимается." },
             { "Block microphone keys in other apps", "Блокировать клавиши микрофона в других приложениях" },
             { "Blocking applies to all enabled microphone hotkeys. They control the microphone but do not trigger actions in other apps.", "Блокировка действует на все включённые клавиши микрофона. Они управляют микрофоном, но не срабатывают в других приложениях." },
             { "Disabled microphone hotkeys are not blocked. Primary mouse clicks are never blocked. Save settings to keep blocking after restarting.", "Клавиши отключённых функций не блокируются. Основные кнопки мыши не блокируются. Сохраните настройки, чтобы запомнить состояние блокировки." },
@@ -25,9 +28,6 @@ namespace Apeiron.GlobalMute {
             { "Key blocking off.", "Блокировка выключена." },
             { "Hotkeys paused.", "Горячие клавиши приостановлены." },
             { "Key blocking enabled: ", "Общая блокировка: " },
-            { "There are unsaved changes", "Есть несохранённые изменения" },
-            { "The indicator and manual controls remain active.", "Индикатор и ручное управление продолжают работать." },
-            { "Pauses Toggle, Hold and the blocking shortcut. An active Hold is restored. Pause is cleared at restart.", "Приостанавливает переключение, удержание и команду блокировки. Активное удержание завершается с восстановлением состояния микрофона. Пауза снимается после перезапуска." },
             { "Key blocking", "Блокировка клавиш" },
             { "With blocking enabled, the selected keys control the microphone but do not trigger actions in other apps.", "При включённой блокировке выбранные клавиши управляют микрофоном, но не срабатывают в других приложениях." },
             { "Uses the individual Toggle and Hold choices below. Primary mouse clicks are never blocked. Save settings to keep the shared switch after restarting.", "Действуют отдельные настройки переключения и удержания ниже. Основные кнопки мыши не блокируются. Сохраните настройки, чтобы запомнить состояние общего переключателя." },

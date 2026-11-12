@@ -1,32 +1,35 @@
-APEIRON Global Mute Overlay v0.1.0-beta.4 RU
-Production revision: 0.1.0.11; settings schema: 6.
+APEIRON Global Mute Overlay v0.1.0-beta.5 RU / EN
+Production revision: 0.1.0.12; settings schema: 6 (unchanged).
 
-Passed against the compiled production EXE:
-- 353 parameter combinations; 20,000 seeded actions; 66,103 assertions.
-- Controller state/overlay matrix, failures, reconnect, exact original-state restoration.
-- Unified blocking across enabled/disabled actions, master/pause states and primary mouse exception.
-- Single command keys, exact modifier combinations, conflicts and shared-base-key command priority.
-- Both press/release orders for L/R Shift, Ctrl and Alt; repeat prevention, full-release rearming.
-- Latched completing-key routes across pause, capture, focus and rebinding.
-- Partner-state reconciliation for a missed passed key-up or first-side down.
-- Multiple queued commands and blocking changes during active Hold without lost release or audio writes.
-- Memory-only recovery with no per-Hold legacy-store writes; legacy file migration.
-- Schema 5 mixed individual choices migrate to the saved master; removed choices absent from saved XML.
-- Round-trip single/pair/old-combination bindings, preserved microphone/visuals/position.
-- RU localization, transparency, save-dirty marker, version/COM interface metadata.
-- x64 Windows GUI managed PE, valid entry point, NX/ASLR, seven icon sizes,
-  version resources and asInvoker/DPI-aware manifest.
+Passed separately against each compiled production EXE:
+- 353 parameter combinations; 20,000 seeded actions; 66,050 assertions per language.
+- Controller and overlay state matrix; failure/reconnect/original-state restoration.
+- Unified blocking, action enable/pause/master combinations, primary mouse exceptions.
+- Single commands, exact modifier combinations, L/R Shift/Ctrl/Alt pairs in both orders.
+- Repeat prevention, full-release rearming, latched routes, physical partner repair.
+- Queued command parity, active Hold and blocked release restoration without file I/O.
+- Memory-only recovery, legacy file retirement, settings migration/round trips.
+- Saved master state, single/chord/pair bindings, colors, opacity/position compatibility.
+- RU/EN localization, stable display-rule choices, 0-95% transparency and COM metadata.
+- x64 managed GUI PE; NX/ASLR; entry point; seven icon sizes; version and manifest.
 
-Visual inspection (separate Mono/Linux harness, same C# source, compatible test icon):
-- RU Controls tab with the longest modifier-pair binding fits at the normal 700x680 size.
-- One master switch; no per-action blocking checkboxes.
-- Master update shows both keys blocked and the unsaved-settings marker.
-- Scroll to the Hold description; buttons and footer remain available.
-This harness never starts production hooks, Core Audio, UAC, startup or timers.
+Source review:
+- Removed marker and change tracker; no leftover references in production source/tests.
+- Save settings still normalizes, applies startup and writes settings XML atomically.
+- Pause label uses the same localized string in Controls and the tray; tooltip keeps details.
+- Core audio, input, routing and recovery code is unchanged from beta.4.
 
-NOT executed: real Windows Core Audio, global keyboard/mouse hooks, command capture,
-Windows UAC/elevation, games, tray/taskbar, startup and Windows-specific DPI rendering.
-These require Windows feedback. Tests do not establish game/device compatibility.
+Visual inspection in separate Mono/Linux harnesses (same C# source, compatibility icon):
+- Both RU and EN Controls tabs: pause wording fits; modifier-pair binding fits.
+- Master switch updates status; the unsaved-changes marker does not appear.
+- English Appearance: transparency, swatches, preview and rule controls fit.
+- Save/hide/exit footer stays visible. External actions disabled in the harness.
 
-EXE SHA256: c83a952b997babc0526ca5686da3142af462cdab392681e2c4cc88495363c6e5
-Source: https://github.com/iamtheapeiron-web/apeiron-global-mute-overlay/tree/codex/beta4-blocking-hotkeys
+NOT exercised: real Windows Core Audio, input hooks, shortcut capture, UAC,
+startup/Save through Windows registry integration, Windows tray/taskbar,
+Windows-specific DPI and games. These remain Windows feedback checks.
+Automated checks use fake audio and do not establish device/game compatibility.
+
+RU EXE SHA256: b9aa71bb13618b7006aa40734910c13f1f83cc522cd025ceb977cadba997a45f
+EN EXE SHA256: e63c8f5e5fb8258d011f38793f0a252adf16a9614d03034f9160be9aa514c82e
+Source: https://github.com/iamtheapeiron-web/apeiron-global-mute-overlay/tree/codex/beta5-ru-en
