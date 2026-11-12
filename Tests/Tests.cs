@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 using Apeiron.GlobalMute;
 
 public class Clock : IClock { public double Time; public double Now { get { return Time; } } }
-public class MemoryJournal : IRestoreStore {
+public class MemoryJournal : IRestoreStore, ILegacyRestoreFile {
     public PendingRestore Value;
     public bool FailSave, FailClear;
     public int Loads, Saves, Clears;
@@ -41,12 +41,12 @@ public class Fixture : IDisposable {
     public MemoryJournal Journal = new MemoryJournal();
     public Controller C;
     public InputRouter Router;
-    public OptionalRestoreStore Recovery;
-    public Fixture(bool muted) : this(muted, null) { }
-    public Fixture(bool muted, bool? fileRecovery) {
+    public MemoryRestoreStore Recovery;
+    public Fixture(bool muted) : this(muted, false) { }
+    public Fixture(bool muted, bool memoryMode) {
         A.Value = muted;
         IRestoreStore store = Journal;
-        if (fileRecovery.HasValue) { Recovery = new OptionalRestoreStore(Journal, fileRecovery.Value); store = Recovery; }
+        if (memoryMode) { Recovery = new MemoryRestoreStore(Journal); store = Recovery; }
         C = new Controller(S, A, Clock, store); Router = new InputRouter(C); C.Poll();
     }
     public void Advance(double seconds) { Clock.Time += seconds; }
@@ -233,8 +233,8 @@ public static partial class Tests {
             loaded = XmlFiles.Read<Settings>(path); loaded.Normalize();
             Assert(loaded.PopupSeconds == 10 && !loaded.HoldEnabled && loaded.IconColor == "#FFFFFF", "Invalid settings normalized");
             Assert(File.Exists(path + ".bak"), "Atomic save keeps backup");
-            var journal = new RestoreStore(Path.Combine(directory, "hold.xml"));
-            journal.Save(new PendingRestore { DeviceId = "A", Muted = true });
+            var journal = new LegacyRestoreFile(Path.Combine(directory, "hold.xml"));
+            XmlFiles.Write(Path.Combine(directory, "hold.xml"), new PendingRestore { DeviceId = "A", Muted = true });
             Assert(journal.Load().DeviceId == "A" && journal.Load().Muted, "Journal round-trip");
             journal.Clear(); Assert(journal.Load() == null, "Journal removed after restoration");
             File.WriteAllText(path, "<!DOCTYPE x [<!ENTITY x SYSTEM 'file:///etc/passwd'>]><Settings>&x;</Settings>");
@@ -334,82 +334,6 @@ public static partial class Tests {
             f.C.Poll(); Assert(f.A.Validations == 1, "Periodic monitoring still validates endpoint availability");
         }
     }
-    private static void OptionalRecoveryCases() {
-        Assert(!new Settings().FileRecoveryEnabled && new Settings().OfferAdministratorRestart, "New defaults: memory recovery and admin notice enabled");
-        foreach (bool original in new[] { false, true })
-        foreach (bool file in new[] { false, true })
-        foreach (NormalRule normal in Enum.GetValues(typeof(NormalRule)))
-        foreach (HoldRule hold in Enum.GetValues(typeof(HoldRule)))
-        foreach (double seconds in new[] { 0.2, 1.7 }) {
-            scenarios++;
-            using (var f = new Fixture(original, file)) {
-                f.S.Normal = normal; f.S.DuringHold = hold; f.S.PopupSeconds = seconds;
-                f.C.BeginHold();
-                Assert(f.C.HoldActive && f.A.Value == !original && f.C.HasPending, "Optional recovery keeps Hold behavior");
-                Assert(f.Journal.Saves == (file ? 1 : 0) && f.Recovery.HasPersistedRecovery == file, "Only enabled file recovery writes at Hold press");
-                f.Advance(seconds); f.C.ReleaseHold();
-                Assert(f.A.Value == original && !f.C.HasPending && f.Recovery.CanRestartSafely, "Optional recovery restores before release completes");
-                Assert(f.Journal.Clears == (file ? 1 : 0) && f.Journal.Loads == 1, "Memory Hold has no disk reads/writes/deletes after startup");
-                f.C.BeginHold(); f.A.Online = false; f.C.Poll();
-                Assert(f.C.HasPending && !f.C.Ready && f.Recovery.CanRestartSafely == file, "Restart protection matches retained recovery");
-                f.A.Online = true; f.Advance(2); f.C.Poll();
-                Assert(f.A.Value == original && !f.C.HasPending, "Disconnect/reconnect works in either recovery mode");
-            }
-        }
-        using (var f = new Fixture(false, false)) {
-            for (int i = 0; i < 200; i++) { f.C.BeginHold(); f.C.ReleaseHold(); }
-            Assert(f.Journal.Loads == 1 && f.Journal.Saves == 0 && f.Journal.Clears == 0, "200 memory-only Hold cycles perform zero disk-store operations");
-            f.C.BeginHold(); f.Recovery.SetEnabled(true);
-            Assert(f.C.HoldActive && f.A.Value && f.Recovery.Enabled && f.Journal.Value.Muted == false, "Enable file mode during Hold persists the correct original state");
-            f.Recovery.SetEnabled(false);
-            Assert(f.C.HoldActive && f.A.Value && !f.Recovery.Enabled && !f.Recovery.HasPersistedRecovery && f.C.HasPending, "Disable file mode keeps active in-memory Hold");
-            int saves = f.Journal.Saves, clears = f.Journal.Clears;
-            f.C.ReleaseHold();
-            Assert(!f.A.Value && f.Journal.Saves == saves && f.Journal.Clears == clears, "Release after disabling does not touch disk");
-        }
-        using (var f = new Fixture(true, false)) {
-            f.C.BeginHold(); f.Journal.FailSave = true;
-            bool failed = false; try { f.Recovery.SetEnabled(true); } catch (IOException) { failed = true; }
-            Assert(failed && !f.Recovery.Enabled && f.C.HoldActive && !f.A.Value && f.C.HasPending, "Failed opt-in preserves memory mode and Hold");
-            f.Journal.FailSave = false; f.C.ReleaseHold(); Assert(f.A.Value, "Release succeeds after failed file opt-in");
-        }
-        using (var f = new Fixture(false, true)) {
-            f.C.BeginHold(); f.Journal.FailClear = true;
-            bool failed = false; try { f.Recovery.SetEnabled(false); } catch (IOException) { failed = true; }
-            Assert(failed && f.Recovery.Enabled && f.Recovery.HasPersistedRecovery && f.C.HoldActive, "Failed opt-out retains the file and previous mode");
-            f.Journal.FailClear = false; f.C.ReleaseHold(); Assert(!f.A.Value, "Release after failed file opt-out");
-        }
-        var disk = new MemoryJournal { Value = new PendingRestore { DeviceId = "A", DeviceName = "Old device", Muted = true } };
-        var optional = new OptionalRestoreStore(disk, false);
-        var s = new Settings { DeviceId = "B" }; var a = new FakeAudio { Value = false };
-        using (var c = new Controller(s, a, new Clock(), optional)) {
-            Assert(c.HasPending && s.DeviceId == "A" && optional.HasPersistedRecovery, "Upgrade keeps an old pending file even with new default off");
-            c.Poll(); Assert(c.Ready && a.Value && !c.HasPending && disk.Clears == 1, "Upgrade recovery completes on its exact old device");
-            c.BeginHold(); Assert(disk.Saves == 0, "New Holds use the selected memory-only default after legacy recovery");
-        }
-        string directory = Path.Combine(Path.GetTempPath(), "apeiron-optional-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        try {
-            string path = Path.Combine(directory, "recovery.xml");
-            var store = new OptionalRestoreStore(new RestoreStore(path), false);
-            var settings = new Settings { DeviceId = "A", DeviceName = "Device" };
-            var audio = new FakeAudio();
-            using (var c = new Controller(settings, audio, new Clock(), store)) { c.Poll(); c.BeginHold(); c.ReleaseHold(); }
-            Assert(Directory.GetFiles(directory).Length == 0, "Real memory-only recovery creates no files or temporary files");
-            store.SetEnabled(true); store.Save(new PendingRestore { DeviceId = "A", Muted = true });
-            var reopened = new OptionalRestoreStore(new RestoreStore(path), false);
-            Assert(reopened.Load().Muted && reopened.HasPersistedRecovery, "Enabled file survives recreation with option off");
-            reopened.Clear(); Assert(Directory.GetFiles(directory).Length == 0, "Recovered file removed cleanly");
-            string config = Path.Combine(directory, "settings.xml");
-            File.WriteAllText(config, "<Settings><SchemaVersion>1</SchemaVersion><DeviceId>A</DeviceId><ToggleKey>119</ToggleKey><HoldKey>192</HoldKey></Settings>");
-            var loaded = XmlFiles.Read<Settings>(config); loaded.Normalize();
-            Assert(loaded.SchemaVersion == 4 && !loaded.FileRecoveryEnabled && loaded.OfferAdministratorRestart && loaded.HoldKey == 192 && loaded.ToggleKey == 119,
-                "Older settings keep custom keys and adopt the new optional defaults");
-            loaded.FileRecoveryEnabled = true; loaded.OfferAdministratorRestart = false; XmlFiles.Write(config, loaded);
-            loaded = XmlFiles.Read<Settings>(config);
-            Assert(loaded.FileRecoveryEnabled && !loaded.OfferAdministratorRestart, "Both new options persist correctly");
-        } finally { Directory.Delete(directory, true); }
-    }
     private static void ElevationNoticeCases() {
         foreach (bool? own in new bool?[] { null, false, true })
         foreach (bool? foreground in new bool?[] { null, false, true }) {
@@ -463,7 +387,7 @@ public static partial class Tests {
         var clock = new Clock(); var mailbox = new InputMailbox(clock);
         gate.Configure(120, 192, true, true, false, true, false, false);
         mailbox.Configure(120, 192, false, false, delegate { });
-        using (var f = new Fixture(false, false)) {
+        using (var f = new Fixture(false, true)) {
             bool block = gate.Process(192, true, false); mailbox.Record(192, true);
             var snapshot = mailbox.Take(true, false, gate.IsBlockedDown(192));
             f.Router.Tick(snapshot.ToggleDown, snapshot.HoldDown, snapshot.TogglePressed, snapshot.HoldPressed);
@@ -481,7 +405,7 @@ public static partial class Tests {
         try {
             File.WriteAllText(path, "<Settings><SchemaVersion>2</SchemaVersion><HoldKey>192</HoldKey><OfferAdministratorRestart>true</OfferAdministratorRestart><FileRecoveryEnabled>false</FileRecoveryEnabled></Settings>");
             var settings = XmlFiles.Read<Settings>(path); settings.Normalize();
-            Assert(settings.HoldKey == 192 && settings.BlockHoldKey && !settings.FileRecoveryEnabled && settings.OfferAdministratorRestart && settings.SchemaVersion == 4,
+            Assert(settings.HoldKey == 192 && settings.BlockHoldKey && settings.OfferAdministratorRestart && settings.SchemaVersion == 5,
                 "Build-4 settings upgrade preserves grave binding and enables Hold blocking");
             settings.BlockHoldKey = false; settings.BlockToggleKey = true; XmlFiles.Write(path, settings);
             settings = XmlFiles.Read<Settings>(path); Assert(!settings.BlockHoldKey && settings.BlockToggleKey, "Both blocking preferences persist");
@@ -489,13 +413,13 @@ public static partial class Tests {
     }
     private static void PauseCases() {
         foreach (bool original in new[] { false, true })
-        foreach (bool fileMode in new[] { false, true })
+        foreach (bool memoryMode in new[] { false, true })
         foreach (bool toggleOn in new[] { false, true })
         foreach (bool holdOn in new[] { false, true })
         foreach (bool blockToggle in new[] { false, true })
         foreach (bool blockHold in new[] { false, true }) {
             scenarios++;
-            using (var f = new Fixture(original, fileMode)) {
+            using (var f = new Fixture(original, memoryMode)) {
                 f.S.ToggleEnabled = toggleOn; f.S.HoldEnabled = holdOn;
                 f.S.BlockToggleKey = blockToggle; f.S.BlockHoldKey = blockHold;
                 f.Router.Tick(false, true, false, true);
@@ -533,7 +457,7 @@ public static partial class Tests {
             }
         }
         foreach (bool original in new[] { false, true }) {
-            using (var f = new Fixture(original, false)) {
+            using (var f = new Fixture(original, true)) {
                 f.Router.Tick(false, true, false, true); f.A.Online = false;
                 f.Router.SetPaused(true, false, true);
                 Assert(f.Router.Paused && !f.C.HoldActive && f.C.HasPending && f.C.Pending.DeviceId == "A",
@@ -545,13 +469,13 @@ public static partial class Tests {
             using (var f = new Fixture(original, true)) {
                 f.C.BeginHold(); f.A.FailWrite = true;
                 f.Router.SetPaused(true, false, true);
-                Assert(f.Router.Paused && !f.C.HoldActive && f.C.HasPending && f.Recovery.HasPersistedRecovery,
-                    "A failed pause-time restore retains its file recovery");
+                Assert(f.Router.Paused && !f.C.HoldActive && f.C.HasPending && !f.Recovery.CanRestartSafely,
+                    "A failed pause-time restore retains its in-memory recovery");
                 f.A.FailWrite = false; f.Advance(2); f.C.Poll();
                 Assert(f.A.Value == original && !f.C.HasPending && f.Router.Paused, "Pause-time restore failure retries while paused");
             }
         }
-        using (var f = new Fixture(false, false)) {
+        using (var f = new Fixture(false, true)) {
             f.S.HoldKey = 192; f.S.BlockToggleKey = true;
             var gate = new KeySuppression();
             gate.Configure(120, 192, f.Router.ToggleEnabled, f.Router.HoldEnabled, true, true, false, false);
@@ -594,7 +518,7 @@ public static partial class Tests {
         foreach (bool paused in new[] { false, true })
         foreach (bool master in new[] { false, true }) {
             scenarios++;
-            using (var f = new Fixture(original, false)) {
+            using (var f = new Fixture(original, true)) {
                 f.S.HoldKey = 192; f.S.ToggleEnabled = toggleOn; f.S.HoldEnabled = holdOn;
                 f.S.BlockToggleKey = toggleBlock; f.S.BlockHoldKey = holdBlock;
                 f.Router.KeyBlockingEnabled = master; f.Router.SetPaused(paused, false, false);
@@ -630,7 +554,7 @@ public static partial class Tests {
         }
         foreach (bool original in new[] { false, true })
         foreach (bool blockBefore in new[] { false, true }) {
-            using (var f = new Fixture(original, false)) {
+            using (var f = new Fixture(original, true)) {
                 f.S.HoldKey = 192; f.S.BlockToggleKey = true;
                 f.Router.KeyBlockingEnabled = blockBefore;
                 var gate = new KeySuppression(); ConfigureBlocking(f, gate, false, false);
@@ -660,20 +584,20 @@ public static partial class Tests {
                 Assert(gate.Process(192, true, false) && gate.Process(192, false, false), "After release, resumed master blocking applies to the next press");
             }
         }
-        using (var f = new Fixture(false, false)) {
+        using (var f = new Fixture(false, true)) {
             f.S.ToggleKey = 1; f.S.HoldKey = 4; f.S.BlockToggleKey = true;
             Assert(!f.Router.BlockToggleKey && !f.Router.BlockHoldKey, "Master never makes primary mouse clicks blockable");
         }
         string path = Path.Combine(Path.GetTempPath(), "apeiron-rc-session-" + Guid.NewGuid().ToString("N") + ".xml");
         try {
-            using (var f = new Fixture(false, false)) {
+            using (var f = new Fixture(false, true)) {
                 f.S.HoldKey = 192; f.S.ToggleKey = 119; f.S.BlockToggleKey = true; f.S.BlockHoldKey = false;
                 f.Router.KeyBlockingEnabled = false; f.Router.SetPaused(true, false, false);
                 XmlFiles.Write(path, f.S);
                 var loaded = XmlFiles.Read<Settings>(path); loaded.Normalize();
                 using (var fresh = new Controller(loaded, new FakeAudio(), new Clock(), new MemoryJournal())) {
                     var restarted = new InputRouter(fresh);
-                    Assert(!restarted.Paused && restarted.KeyBlockingEnabled, "A new session clears pause and re-enables master blocking");
+                    Assert(!restarted.Paused && !restarted.KeyBlockingEnabled, "A new session clears pause and restores saved master blocking");
                     Assert(loaded.HoldKey == 192 && loaded.ToggleKey == 119 && loaded.BlockToggleKey && !loaded.BlockHoldKey,
                         "Saving during pause/master bypass preserves actual key bindings and per-key preferences");
                 }
@@ -684,13 +608,13 @@ public static partial class Tests {
         Assert(KeyNames.Format(17, "ControlKey") == "Ctrl" && KeyNames.Format(162, "LControlKey") == Ui.Text("Left Ctrl") &&
             KeyNames.Format(163, "RControlKey") == Ui.Text("Right Ctrl"), "Generic and left/right modifiers keep distinct readable captions");
         var assembly = typeof(Controller).Assembly;
-        Assert(assembly.GetName().Version.ToString() == "0.1.0.9" &&
-            ((AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(assembly, typeof(AssemblyInformationalVersionAttribute))).InformationalVersion == "0.1.0-beta.2",
+        Assert(assembly.GetName().Version.ToString() == "0.1.0.10" &&
+            ((AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(assembly, typeof(AssemblyInformationalVersionAttribute))).InformationalVersion == "0.1.0-beta.3",
             "Delivery assembly revision and public beta version agree");
     }
     public static int Main() {
         try {
-            Matrix(); FailureCases(); PreviewCases(); RandomSequences(); StorageAndInterop(); ImmediateInputCases(); OptionalRecoveryCases(); ElevationNoticeCases(); SuppressionCases(); PauseCases(); MasterBlockingCases(); ShortcutCases();
+            Matrix(); FailureCases(); PreviewCases(); RandomSequences(); StorageAndInterop(); ImmediateInputCases(); MemoryRecoveryCases(); PresentationCases(); ElevationNoticeCases(); SuppressionCases(); PauseCases(); MasterBlockingCases(); ShortcutCases();
             Console.WriteLine("PASS: " + scenarios + " parameter combinations; 20,000 seeded actions; " + assertions + " assertions against the compiled production EXE.");
             Console.WriteLine("Real Windows Core Audio, global input/UAC, GUI/DPI, tray/taskbar, startup and games were not executed.");
             return 0;

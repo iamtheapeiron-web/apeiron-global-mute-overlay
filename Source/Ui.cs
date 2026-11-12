@@ -8,6 +8,55 @@ namespace Apeiron.GlobalMute {
 #if APEIRON_RU
         public const string LanguageCode = "RU";
         private static readonly Dictionary<string, string> Russian = new Dictionary<string, string> {
+            { "Blocking preference updated.", "Настройка блокировки изменена." },
+            { "Key blocking enabled.", "Блокировка включена." },
+            { "Key blocking off.", "Блокировка выключена." },
+            { "Hotkeys paused.", "Горячие клавиши приостановлены." },
+            { "Key blocking enabled: ", "Общая блокировка: " },
+            { "There are unsaved changes", "Есть несохранённые изменения" },
+            { "The indicator and manual controls remain active.", "Индикатор и ручное управление продолжают работать." },
+            { "Pauses Toggle, Hold and the blocking shortcut. An active Hold is restored. Pause is cleared at restart.", "Приостанавливает переключение, удержание и сочетание блокировки. Активное удержание завершается с восстановлением состояния микрофона. Пауза снимается после перезапуска." },
+            { "Key blocking", "Блокировка клавиш" },
+            { "With blocking enabled, the selected keys control the microphone but do not trigger actions in other apps.", "При включённой блокировке выбранные клавиши управляют микрофоном, но не срабатывают в других приложениях." },
+            { "Uses the individual Toggle and Hold choices below. Primary mouse clicks are never blocked. Save settings to keep the shared switch after restarting.", "Действуют отдельные настройки переключения и удержания ниже. Основные кнопки мыши не блокируются. Сохраните настройки, чтобы запомнить состояние общего переключателя." },
+            { "Use shortcut", "Использовать сочетание" },
+            { "Assign...", "Назначить..." },
+            { "Change...", "Изменить..." },
+            { "Clear", "Очистить" },
+            { "Choose...", "Выбрать..." },
+            { "The shortcut toggles shared key blocking. It stays reserved for this command even with blocking off. Pause hotkeys also pauses it.", "Сочетание включает и выключает общую блокировку. Оно зарезервировано для этой команды и при выключенной блокировке. Пауза горячих клавиш отключает и сочетание." },
+            { "Hold reverses the microphone state until release. Toggle is ignored during Hold.", "Удержание меняет состояние микрофона на противоположное до отпускания клавиши. Переключение во время удержания игнорируется." },
+            { "Hold uses memory. Release or normal exit restores an available microphone. After an app crash, check the microphone state manually.", "Состояние удержания хранится в памяти. Отпускание клавиши или обычный выход восстанавливает доступный микрофон. После сбоя программы проверьте состояние микрофона вручную." },
+            { "Shortcut cleared. Save settings to keep this change.", "Сочетание удалено. Сохраните настройки, чтобы запомнить изменение." },
+            { "Indicator appearance", "Внешний вид индикатора" },
+            { "Transparency (%)", "Прозрачность (%)" },
+            { "0% is fully visible. 95% is almost transparent.", "0% - полностью видимый индикатор. 95% - почти прозрачный." },
+            { "Preview", "Предпросмотр" },
+            { "Microphone muted", "Микрофон выключен" },
+            { "Microphone on", "Микрофон включён" },
+            { "Does not change the microphone state.", "Не меняет состояние микрофона." },
+            { "Overlay placement", "Размещение индикатора" },
+            { "Choose a corner or drag the indicator into place.", "Выберите угол или разместите индикатор перетаскиванием." },
+            { "Indicator display", "Показ индикатора" },
+            { "In normal mode", "В обычном режиме" },
+            { "During Hold", "Во время удержания" },
+            { "Brief modes use the duration below. Keep visible while muted lasts until the microphone is on.", "Краткий показ длится указанное ниже время. Постоянный показ при выключенном микрофоне продолжается до его включения." },
+            { "Same as normal mode uses the rule above. Throughout the hold stays visible until release. Releasing Hold creates no extra popup.", "Обычный режим использует правило выше. Постоянный показ при удержании длится до отпускания клавиши. Отпускание не создаёт отдельного уведомления." },
+            { "Brief display duration (sec.)", "Длительность краткого показа, сек." },
+            { "Applies to brief displays and indicator previews.", "Применяется к краткому показу и предпросмотру индикатора." },
+            { "Briefly on any change", "Кратко при изменении" },
+            { "Briefly when muted", "Кратко при выключении" },
+            { "Briefly when unmuted", "Кратко при включении" },
+            { "Do not show", "Не показывать" },
+            { "Same as normal mode", "Как в обычном режиме" },
+            { "Throughout the hold", "Всё время удержания" },
+            { "Key blocking off. Microphone hotkeys remain active unless paused.", "Блокировка выключена. Горячие клавиши микрофона работают, если не включена пауза." },
+            { "Key blocking paused", "Блокировка приостановлена" },
+            { "Key blocking off", "Блокировка выключена" },
+            { "Both keys blocked", "Блокируются обе клавиши" },
+            { "Blocked: Toggle", "Блокируется: переключение" },
+            { "Blocked: Hold", "Блокируется: удержание" },
+            { "No keys selected for blocking", "Клавиши для блокировки не выбраны" },
             { " [Administrator]", " [Администратор]" },
             { "Microphone", "Микрофон" }, { "Controls", "Управление" }, { "Appearance", "Оформление" },
             { "General", "Общие" }, { "About", "О программе" },
@@ -68,12 +117,6 @@ namespace Apeiron.GlobalMute {
             { "Drag the overlay, then click the green Finish placement button.", "Перетащите индикатор, затем нажмите зелёную кнопку «Завершить размещение»." },
             { "Use a corner preset, enter coordinates, or place the overlay by dragging.", "Выберите угол, введите координаты или разместите индикатор перетаскиванием." },
             { "Position applied. Save settings to keep it.", "Положение изменено. Сохраните настройки, чтобы запомнить его." },
-            { "Hold recovery", "Восстановление после удержания" }, { "Save Hold recovery to a file", "Сохранять состояние удержания в файл" },
-            { "Off by default: Hold uses memory and does not write its recovery file. Available microphones are restored on release or normal exit. An unfinished recovery cannot survive restart while this option is off.", "По умолчанию выключено: состояние хранится в памяти без записи файла восстановления. При отпускании клавиши или обычном выходе состояние доступного микрофона восстанавливается. Незавершённое восстановление теряется при перезапуске программы." },
-            { "Enable file recovery to retain an unfinished Hold after a crash or restart. An existing recovery from an older version is completed even when this option is off.", "Включите запись в файл, чтобы сохранить исходное состояние при сбое или перезапуске. Восстановление из старого файла выполняется, даже если эта настройка выключена." },
-            { "Hold recovery file enabled. Save settings to keep this choice.", "Восстановление из файла включено. Сохраните настройки." },
-            { "Hold recovery uses memory. Save settings to keep this choice.", "Состояние удержания хранится в памяти. Сохраните настройки." },
-            { "Recovery setting was not changed: ", "Не удалось изменить настройку восстановления: " },
             { "Administrator rights", "Права администратора" }, { "Running as Administrator.", "Программа запущена от имени администратора." },
             { "Running without Administrator rights.", "Программа запущена без прав администратора." },
             { "Could not determine current Administrator status.", "Не удалось определить наличие прав администратора." },
@@ -105,7 +148,7 @@ namespace Apeiron.GlobalMute {
             { "Blocking active for Toggle.", "Блокируется клавиша переключения." }, { "Blocking active for Hold.", "Блокируется клавиша удержания." },
             { "No enabled key is selected for blocking in Controls.", "В настройках управления не выбраны активные клавиши для блокировки." },
             { "Settings saved.", "Настройки сохранены." }, { "Could not save settings: ", "Не удалось сохранить настройки: " },
-            { "Reconnect the microphone to restore Hold, or enable recovery to a file before restarting.", "Перед перезапуском подключите микрофон для восстановления состояния или включите запись восстановления в файл." },
+            { "Reconnect the microphone to restore Hold before restarting.", "Перед перезапуском подключите микрофон, чтобы восстановить его исходное состояние." },
             { "Administrator restart did not start.", "Не удалось запустить программу от имени администратора." },
             { "Administrator restart was cancelled. This instance is still running.", "Запуск от имени администратора отменён. Текущий экземпляр продолжает работать." },
             { "Diagnostics copied.", "Диагностика скопирована." }, { "Application ", "Приложение " },
@@ -153,7 +196,8 @@ namespace Apeiron.GlobalMute {
             { "Left Alt", "Левый Alt" }, { "Right Alt", "Правый Alt" }, { "Key 0x", "Клавиша 0x" },
             { "Microphone: ", "Микрофон: " }, { "Connected: ", "Подключён: " }, { "Windows mute: ", "Звук отключён в Windows: " },
             { "Unknown", "Неизвестно" }, { "Hold active: ", "Удержание активно: " }, { "Hold recovery pending: ", "Ожидается восстановление: " },
-            { "Recovery file enabled: ", "Восстановление из файла включено: " }, { "Recovery retained on disk: ", "Состояние сохранено на диске: " },
+            { "Legacy recovery pending: ", "Ожидается восстановление из старой версии: " },
+            { "Restore the previous Hold state before starting another Hold.", "Восстановите прежнее состояние перед новым удержанием." },
             { "Block Toggle / Hold keys: ", "Блокировать переключение / удержание: " },
             { "Key blocking enabled (session): ", "Общая блокировка в этом сеансе: " },
             { "Effective Toggle / Hold blocking: ", "Действующая блокировка переключения / удержания: " },
@@ -169,6 +213,15 @@ namespace Apeiron.GlobalMute {
 #else
         public const string LanguageCode = "EN";
 #endif
+        public static string PunctuationHint {
+            get {
+#if APEIRON_RU
+                return "";
+#else
+                return "Punctuation key labels use US legends. Your assigned key does not change when updating the app.";
+#endif
+            }
+        }
         public static string Text(string value) {
 #if APEIRON_RU
             string result; if (value != null && Russian.TryGetValue(value, out result)) return result;

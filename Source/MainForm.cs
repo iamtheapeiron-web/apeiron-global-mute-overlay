@@ -10,9 +10,11 @@ using Microsoft.Win32;
 namespace Apeiron.GlobalMute {
     public sealed class MainForm : Form {
         private readonly Settings settings;
+        private readonly SettingsChangeTracker settingsChanges;
+        private readonly ToolTip hints = new ToolTip { AutoPopDelay = 12000, InitialDelay = 450, ReshowDelay = 100, ShowAlways = true };
         private readonly Controller controller;
         private readonly InputRouter input;
-        private readonly OptionalRestoreStore recovery;
+        private readonly MemoryRestoreStore recovery;
         private readonly ElevationNotice elevation;
         private readonly int ownProcessId = Process.GetCurrentProcess().Id;
         private readonly ApeironOverlayForm overlay = new ApeironOverlayForm();
@@ -31,11 +33,13 @@ namespace Apeiron.GlobalMute {
         private string lastEnumerationError = "";
         private List<DeviceInfo> devices = new List<DeviceInfo>();
         private readonly List<Label> wrapping = new List<Label>();
-        private ComboBox deviceList, shapes, monitors;
+        private ComboBox deviceList, shapes, monitors, normalRuleList, holdRuleList;
         private Label deviceStatus, deviceDetails, selectionInfo, footer, toggleBinding, holdBinding, placementHint;
-        private Button toggleNow, placeButton, mutedColor, onColor, iconColor;
+        private Button toggleNow, placeButton, assignBlockingButton, clearBlockingButton;
+        private ColorChoice mutedColor, onColor, iconColor;
+        private Label saveState;
         private CheckBox toggleEnabled, holdEnabled, autoStart, startMinimized;
-        private CheckBox fileRecovery, offerAdminRestart;
+        private CheckBox offerAdminRestart;
         private CheckBox blockToggle, blockHold;
         private CheckBox pauseHotkeys, blockKeys;
         private Label blockingStatus;
@@ -45,13 +49,14 @@ namespace Apeiron.GlobalMute {
         private bool startupAdministratorPending = true;
         private TableLayoutPanel elevationBanner;
         private Label elevationWarning;
-        private NumericUpDown duration, size, opacity, x, y;
+        private NumericUpDown duration, size, transparency;
+        private TrackBar transparencySlider;
         private TableLayoutPanel lookStack;
 
         public MainForm(Settings settings, bool trayLaunch, string notice) {
             this.settings = settings;
-            if (settings.FileRecoveryEnabled) XmlFiles.WarmUpRecovery();
-            recovery = new OptionalRestoreStore(new RestoreStore(Path.Combine(Program.DataDir, "hold-recovery.xml")), settings.FileRecoveryEnabled);
+            settingsChanges = new SettingsChangeTracker(settings);
+            recovery = new MemoryRestoreStore(new LegacyRestoreFile(Path.Combine(Program.DataDir, "hold-recovery.xml")));
             controller = new Controller(settings, new CoreAudio(), new MonotonicClock(), recovery);
             elevation = new ElevationNotice(ApeironProcessSecurity.GetElevation(ownProcessId));
             input = new InputRouter(controller);
@@ -78,6 +83,8 @@ namespace Apeiron.GlobalMute {
             lookStack = Page(tabs, "Appearance"); var general = Page(tabs, "General"); var about = Page(tabs, "About");
             BuildMicrophone(mic); BuildControls(controls); BuildAppearance(lookStack); BuildGeneral(general); BuildAbout(about);
             var bottom = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 1 };
+            saveState = TextLabel("There are unsaved changes"); saveState.ForeColor = Color.DarkOrange;
+            saveState.Font = new Font(Font, FontStyle.Bold); saveState.Visible = false; bottom.Controls.Add(saveState);
             footer = TextLabel(String.IsNullOrEmpty(notice) ? Ui.Text("Choose a microphone, then Save settings.") : notice);
             bottom.Controls.Add(footer);
             var buttons = Flow();
@@ -106,6 +113,7 @@ namespace Apeiron.GlobalMute {
             timer.Interval = 20; timer.Tick += delegate { TickApplication(); };
             EnsureOverlayOnScreen();
             initializing = false;
+            RefreshSaveState();
         }
         private static Icon LoadIcon() {
             using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("APEIRON.ico"))
@@ -118,7 +126,7 @@ namespace Apeiron.GlobalMute {
         }
         private static void Add(TableLayoutPanel panel, Control control) {
             control.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
-            control.Margin = new Padding(0, 0, 0, 10);
+            control.Margin = new Padding(0, 0, 0, 6);
             int row = panel.RowCount++; panel.RowStyles.Add(new RowStyle(SizeType.AutoSize)); panel.Controls.Add(control, 0, row);
         }
         private Label TextLabel(string text) {
@@ -147,10 +155,17 @@ namespace Apeiron.GlobalMute {
             var row = new TableLayoutPanel { AutoSize = true, ColumnCount = 2, Dock = DockStyle.Top };
             row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 175)); row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             var label = new Label { Text = Ui.Text(text), AutoSize = true, MaximumSize = new Size(165, 0), Margin = new Padding(0, 5, 8, 0) };
+            control.AccessibleName = Ui.Text(text);
             row.Controls.Add(label, 0, 0); row.Controls.Add(control, 1, 0); Add(parent, row);
         }
+        private void Hint(Control control, string text) {
+            if (!String.IsNullOrEmpty(text)) hints.SetToolTip(control, Ui.Text(text));
+        }
+        private void RefreshSaveState() {
+            if (!initializing && saveState != null) saveState.Visible = settingsChanges.HasChanges(settings);
+        }
         private TableLayoutPanel Group(TableLayoutPanel parent, string title) {
-            var group = new GroupBox { Text = Ui.Text(title), AutoSize = true, Dock = DockStyle.Top, Padding = new Padding(12, 22, 12, 10) };
+            var group = new GroupBox { Text = Ui.Text(title), AutoSize = true, Dock = DockStyle.Top, Padding = new Padding(12, 8, 12, 6) };
             var inner = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Top, ColumnCount = 1 };
             inner.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); group.Controls.Add(inner); Add(parent, group); return inner;
         }
@@ -216,23 +231,27 @@ namespace Apeiron.GlobalMute {
         private void BuildControls(TableLayoutPanel page) {
             var hotkeys = Group(page, "Hotkeys");
             pauseHotkeys = Check("Pause hotkeys (until restart)", false); Add(hotkeys, pauseHotkeys);
-            Add(hotkeys, TextLabel("While paused, Toggle and Hold stop and their keys pass through to other apps. Monitoring, the overlay and manual controls stay active. Blocking choices are kept for resume."));
+            Add(hotkeys, TextLabel("The indicator and manual controls remain active."));
+            Hint(pauseHotkeys, "Pauses Toggle, Hold and the blocking shortcut. An active Hold is restored. Pause is cleared at restart.");
             pauseHotkeys.CheckedChanged += delegate {
                 if (!initializing && pauseHotkeys.Checked != input.Paused) SetHotkeysPaused(pauseHotkeys.Checked);
             };
-            blockKeys = Check("Block keys in other apps (until restart)", true); Add(hotkeys, blockKeys);
-            blockingStatus = TextLabel(""); Add(hotkeys, blockingStatus);
-            Add(hotkeys, TextLabel("This switch temporarily overrides both blocking choices below. Turning it off lets keys reach other apps; Toggle and Hold still work. Turning it on restores your individual choices."));
+            var blocking = Group(page, "Key blocking");
+            blockKeys = Check("Block keys in other apps", input.KeyBlockingEnabled); Add(blocking, blockKeys);
+            blockingStatus = TextLabel(""); blockingStatus.Font = new Font(Font, FontStyle.Bold); Add(blocking, blockingStatus);
+            Add(blocking, TextLabel("With blocking enabled, the selected keys control the microphone but do not trigger actions in other apps."));
+            Hint(blockKeys, "Uses the individual Toggle and Hold choices below. Primary mouse clicks are never blocked. Save settings to keep the shared switch after restarting.");
             blockKeys.CheckedChanged += delegate {
                 if (!initializing && blockKeys.Checked != input.KeyBlockingEnabled) SetKeyBlockingEnabled(blockKeys.Checked);
             };
-            var blocking = Group(page, "Key blocking shortcut");
-            blockingShortcutEnabled = Check("Enable key blocking shortcut", settings.BlockingShortcutEnabled); Add(blocking, blockingShortcutEnabled);
-            var blockingRow = Flow();
-            blockingRow.Controls.Add(Button("Assign combination", AssignBlockingShortcut));
+            var shortcutRow = Flow();
+            blockingShortcutEnabled = Check("Use shortcut", settings.BlockingShortcutEnabled); shortcutRow.Controls.Add(blockingShortcutEnabled);
             blockingBinding = TextLabel(BlockingShortcut.Format(settings.BlockingShortcutKey, settings.BlockingShortcutModifiers));
-            blockingRow.Controls.Add(blockingBinding); Add(blocking, blockingRow);
-            Add(blocking, TextLabel("Use Ctrl, Alt or Shift with a keyboard key to switch the shared key blocking option. Microphone hotkeys still work when blocking is off. The combination is reserved for this command in other apps, even with blocking off. Pause hotkeys also pauses this command."));
+            shortcutRow.Controls.Add(blockingBinding);
+            assignBlockingButton = Button("Assign...", AssignBlockingShortcut); shortcutRow.Controls.Add(assignBlockingButton);
+            clearBlockingButton = Button("Clear", ClearBlockingShortcut); shortcutRow.Controls.Add(clearBlockingButton); Add(blocking, shortcutRow);
+            Hint(blockingShortcutEnabled, "The shortcut toggles shared key blocking. It stays reserved for this command even with blocking off. Pause hotkeys also pauses it.");
+            Hint(blockingBinding, "The shortcut toggles shared key blocking. It stays reserved for this command even with blocking off. Pause hotkeys also pauses it.");
             blockingShortcutEnabled.CheckedChanged += delegate {
                 if (initializing) return;
                 if (blockingShortcutEnabled.Checked && (!BlockingShortcut.IsValid(settings.BlockingShortcutKey, settings.BlockingShortcutModifiers) ||
@@ -245,39 +264,31 @@ namespace Apeiron.GlobalMute {
             var toggle = Group(page, "Mute / Unmute");
             toggleEnabled = Check("Enable Toggle hotkey", settings.ToggleEnabled); Add(toggle, toggleEnabled);
             toggleBinding = TextLabel(KeyName(settings.ToggleKey));
-            var toggleRow = Flow(); toggleRow.Controls.Add(Button("Assign Toggle key", delegate { AssignKey(false); })); toggleRow.Controls.Add(toggleBinding); Add(toggle, toggleRow);
+            var toggleRow = Flow(); var assignToggle = Button("Assign Toggle key", delegate { AssignKey(false); });
+            toggleRow.Controls.Add(assignToggle); toggleRow.Controls.Add(toggleBinding); Add(toggle, toggleRow);
             blockToggle = Check("Block Toggle key in other apps", settings.BlockToggleKey); Add(toggle, blockToggle);
-            Add(toggle, TextLabel("Disabling this hotkey leaves microphone monitoring and the overlay active."));
+            Hint(toggleEnabled, "Disabling this hotkey leaves microphone monitoring and the overlay active.");
             var hold = Group(page, "Hold Mode");
             holdEnabled = Check("Enable Hold Mode", settings.HoldEnabled); Add(hold, holdEnabled);
             holdBinding = TextLabel(KeyName(settings.HoldKey));
-            var holdRow = Flow(); holdRow.Controls.Add(Button("Assign Hold key", delegate { AssignKey(true); })); holdRow.Controls.Add(holdBinding); Add(hold, holdRow);
+            var holdRow = Flow(); var assignHold = Button("Assign Hold key", delegate { AssignKey(true); });
+            holdRow.Controls.Add(assignHold); holdRow.Controls.Add(holdBinding); Add(hold, holdRow);
             blockHold = Check("Block Hold key in other apps", settings.BlockHoldKey); Add(hold, blockHold);
-            Add(hold, TextLabel("Hold temporarily uses the opposite microphone state. Release restores the previous state. Toggle is ignored while Hold is active."));
-            var normal = Group(page, "Normal microphone changes");
-            string[] titles = { Ui.Text("Show on change"), Ui.Text("Show only when muted"), Ui.Text("Show only when unmuted"), Ui.Text("Keep visible while muted"), Ui.Text("Don't show for normal changes") };
-            for (int i = 0; i < titles.Length; i++) {
-                NormalRule value = (NormalRule)i;
-                var radio = new RadioButton { AutoSize = true, Text = Ui.Text(titles[i]), Checked = settings.Normal == value, Margin = new Padding(0, 3, 0, 3) };
-                radio.CheckedChanged += delegate { if (!initializing && radio.Checked) { settings.Normal = value; controller.RulesChanged(); Render(); } }; Add(normal, radio);
-            }
-            var during = Group(page, "During Hold Mode");
-            string[] holdTitles = { Ui.Text("Follow normal overlay rules"), Ui.Text("Always show while held"), Ui.Text("Don't show during Hold") };
-            for (int i = 0; i < holdTitles.Length; i++) {
-                HoldRule value = (HoldRule)i;
-                var radio = new RadioButton { AutoSize = true, Text = Ui.Text(holdTitles[i]), Checked = settings.DuringHold == value, Margin = new Padding(0, 3, 0, 3) };
-                radio.CheckedChanged += delegate { if (!initializing && radio.Checked) { settings.DuringHold = value; controller.RulesChanged(); Render(); } }; Add(during, radio);
-            }
-            duration = Number(0.2M, 10M, (decimal)settings.PopupSeconds, 1, 0.1M);
-            Row(page, "Popup duration (seconds)", duration);
-            Add(page, TextLabel("Duration applies to brief popups and Test previews. Always show while held stays visible until release. Hold release creates no extra popup."));
-            Add(page, TextLabel("Blocking reserves the assigned key for the overlay in other apps, including the desktop. Hold blocking is on by default. This settings window and key capture remain usable. Primary mouse clicks are never blocked."));
-            Add(page, TextLabel("Punctuation key labels use US legends. Your assigned key does not change when updating the app."));
+            Add(hold, TextLabel("Hold reverses the microphone state until release. Toggle is ignored during Hold."));
+            Hint(holdEnabled, "Hold uses memory. Release or normal exit restores an available microphone. After an app crash, check the microphone state manually.");
+            Hint(assignToggle, Ui.PunctuationHint); Hint(assignHold, Ui.PunctuationHint);
+            Hint(toggleBinding, Ui.PunctuationHint); Hint(holdBinding, Ui.PunctuationHint);
             blockToggle.CheckedChanged += delegate { if (!initializing) { settings.BlockToggleKey = blockToggle.Checked; BlockingChanged(); } };
             blockHold.CheckedChanged += delegate { if (!initializing) { settings.BlockHoldKey = blockHold.Checked; BlockingChanged(); } };
             toggleEnabled.CheckedChanged += delegate { if (initializing) return; settings.ToggleEnabled = toggleEnabled.Checked; CheckKeyConflict(false); SyncInput(); };
             holdEnabled.CheckedChanged += delegate { if (initializing) return; settings.HoldEnabled = holdEnabled.Checked; CheckKeyConflict(true); controller.RulesChanged(); SyncInput(); Render(); };
-            duration.ValueChanged += delegate { if (!initializing) settings.PopupSeconds = (double)duration.Value; };
+        }
+        private void ClearBlockingShortcut() {
+            controller.ReleaseHold();
+            settings.BlockingShortcutEnabled = false; settings.BlockingShortcutKey = 0;
+            settings.BlockingShortcutModifiers = ShortcutModifiers.None;
+            SyncInput(); Render(); UpdateStatus();
+            footer.Text = Ui.Text("Shortcut cleared. Save settings to keep this change.");
         }
         private void CheckKeyConflict(bool changedHold) {
             if (settings.ToggleEnabled && settings.HoldEnabled && settings.ToggleKey == settings.HoldKey) {
@@ -325,30 +336,37 @@ namespace Apeiron.GlobalMute {
             return KeyNames.Format(key, ((Keys)key).ToString());
         }
         private void BuildAppearance(TableLayoutPanel page) {
-            shapes = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 180 };
+            var style = Group(page, "Indicator appearance");
+            shapes = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 200 };
             foreach (string shape in new[] { "Circle", "Rounded square", "Square" }) {
                 var choice = new LocalizedChoice(shape); shapes.Items.Add(choice);
                 if (shape == settings.Shape) shapes.SelectedItem = choice;
             }
-            Row(page, "Shape", shapes);
-            size = Number(32, 220, settings.Size, 0, 2); Row(page, "Size (screen pixels)", size);
-            opacity = Number(15, 100, settings.Opacity, 0, 1); Row(page, "Opacity (%)", opacity);
-            mutedColor = ColorButton(settings.MutedColor); onColor = ColorButton(settings.OnColor); iconColor = ColorButton(settings.IconColor);
-            Row(page, "MUTED background", mutedColor); Row(page, "Mic ON background", onColor); Row(page, "Microphone icon", iconColor);
-            var tests = Flow(); tests.Controls.Add(Button("Test MUTED", delegate { controller.Preview(true); Render(); }));
-            tests.Controls.Add(Button("Test Mic ON", delegate { controller.Preview(false); Render(); })); Add(page, tests);
-            var position = Flow(); x = Number(-30000, 30000, settings.X, 0, 1); y = Number(-30000, 30000, settings.Y, 0, 1);
-            position.Controls.Add(new Label { Text = "X", AutoSize = true, Margin = new Padding(0, 4, 5, 0) }); position.Controls.Add(x);
-            position.Controls.Add(new Label { Text = "Y", AutoSize = true, Margin = new Padding(15, 4, 5, 0) }); position.Controls.Add(y);
-            Row(page, "Position", position);
-            monitors = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 300 };
+            Row(style, "Shape", shapes);
+            size = Number(32, 220, settings.Size, 0, 2); Row(style, "Size (screen pixels)", size);
+            var alphaRow = Flow();
+            transparencySlider = new TrackBar { Minimum = 0, Maximum = 95, Value = settings.Transparency, TickStyle = TickStyle.None,
+                AutoSize = false, Width = 180, Height = 30, SmallChange = 1, LargeChange = 5, AccessibleName = Ui.Text("Transparency (%)") };
+            transparency = Number(0, 95, settings.Transparency, 0, 1); transparency.Width = 65;
+            alphaRow.Controls.Add(transparencySlider); alphaRow.Controls.Add(transparency); Row(style, "Transparency (%)", alphaRow);
+            Hint(transparencySlider, "0% is fully visible. 95% is almost transparent."); Hint(transparency, "0% is fully visible. 95% is almost transparent.");
+            mutedColor = ColorButton(settings.MutedColor, "MUTED background"); onColor = ColorButton(settings.OnColor, "Mic ON background"); iconColor = ColorButton(settings.IconColor, "Microphone icon");
+            Row(style, "MUTED background", mutedColor); Row(style, "Mic ON background", onColor); Row(style, "Microphone icon", iconColor);
+            var preview = Group(page, "Preview");
+            var tests = Flow(); tests.Controls.Add(Button("Microphone muted", delegate { controller.Preview(true); Render(); }));
+            tests.Controls.Add(Button("Microphone on", delegate { controller.Preview(false); Render(); })); Add(preview, tests);
+            Add(preview, TextLabel("Does not change the microphone state."));
+            BuildDisplayRules(page);
+            var placement = Group(page, "Overlay placement");
+            monitors = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
             foreach (var screen in Screen.AllScreens) monitors.Items.Add(screen);
             monitors.DisplayMember = "DeviceName"; monitors.SelectedItem = Screen.PrimaryScreen;
-            Row(page, "Preset monitor", monitors);
+            Row(placement, "Preset monitor", monitors);
             var presets = Flow();
             foreach (string corner in new[] { "Top left", "Top right", "Bottom left", "Bottom right" }) {
                 string captured = corner; presets.Controls.Add(Button(corner, delegate { Preset(captured); }));
-            } Add(page, presets);
+            } Add(placement, presets);
+            // Keep Finish placement outside the disabled groups, so it remains clickable.
             placeButton = Button("Place by dragging", delegate {
                 if (controller.Placement) FinishPlacement();
                 else {
@@ -360,23 +378,72 @@ namespace Apeiron.GlobalMute {
                     placementHint.Text = Ui.Text("Drag the overlay, then click the green Finish placement button."); Render();
                 }
             }); Add(page, placeButton);
-            placementHint = TextLabel("Use a corner preset, enter coordinates, or place the overlay by dragging."); Add(page, placementHint);
+            placementHint = TextLabel("Choose a corner or drag the indicator into place."); Add(page, placementHint);
             shapes.SelectedIndexChanged += delegate { AppearanceChanged(); };
-            foreach (var n in new[] { size, opacity, x, y }) n.ValueChanged += delegate { AppearanceChanged(); };
+            size.ValueChanged += delegate { AppearanceChanged(); };
+            transparencySlider.ValueChanged += delegate { transparency.Value = transparencySlider.Value; };
+            transparency.ValueChanged += delegate {
+                if (initializing) return;
+                transparencySlider.Value = (int)transparency.Value; AppearanceChanged();
+            };
         }
-        private Button ColorButton(string color) {
-            Button button = null;
-            button = Button(color, delegate {
-                using (var picker = new ColorDialog { Color = ColorTranslator.FromHtml(button.Text), FullOpen = true })
-                    if (picker.ShowDialog(this) == DialogResult.OK) { button.Text = ColorTranslator.ToHtml(Color.FromArgb(picker.Color.R, picker.Color.G, picker.Color.B)); AppearanceChanged(); }
-            }); return button;
+        private void BuildDisplayRules(TableLayoutPanel page) {
+            var display = Group(page, "Indicator display");
+            normalRuleList = RuleList(OverlayRuleChoice.NormalChoices(), (int)settings.Normal); Row(display, "In normal mode", normalRuleList);
+            holdRuleList = RuleList(OverlayRuleChoice.HoldChoices(), (int)settings.DuringHold); Row(display, "During Hold", holdRuleList);
+            Hint(normalRuleList, "Brief modes use the duration below. Keep visible while muted lasts until the microphone is on.");
+            Hint(holdRuleList, "Same as normal mode uses the rule above. Throughout the hold stays visible until release. Releasing Hold creates no extra popup.");
+            duration = Number(0.2M, 10M, (decimal)settings.PopupSeconds, 1, 0.1M); Row(display, "Brief display duration (sec.)", duration);
+            Add(display, TextLabel("Applies to brief displays and indicator previews."));
+            normalRuleList.SelectedIndexChanged += delegate {
+                if (initializing || normalRuleList.SelectedItem == null) return;
+                settings.Normal = (NormalRule)((OverlayRuleChoice)normalRuleList.SelectedItem).Value;
+                controller.RulesChanged(); Render(); RefreshSaveState();
+            };
+            holdRuleList.SelectedIndexChanged += delegate {
+                if (initializing || holdRuleList.SelectedItem == null) return;
+                settings.DuringHold = (HoldRule)((OverlayRuleChoice)holdRuleList.SelectedItem).Value;
+                controller.RulesChanged(); Render(); RefreshSaveState();
+            };
+            duration.ValueChanged += delegate { if (!initializing) { settings.PopupSeconds = (double)duration.Value; RefreshSaveState(); } };
+        }
+        private static ComboBox RuleList(OverlayRuleChoice[] choices, int selected) {
+            var list = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill, DropDownWidth = 480 };
+            foreach (var choice in choices) { list.Items.Add(choice); if (choice.Value == selected) list.SelectedItem = choice; }
+            return list;
+        }
+        private ColorChoice ColorButton(string color, string name) {
+            var choice = new ColorChoice { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = false, Dock = DockStyle.Top, Margin = new Padding(0), HexValue = ColorHex(color) };
+            var sample = new ColorSwatchButton { Width = 44, Height = 30, SelectedColor = ColorTranslator.FromHtml(color), Margin = new Padding(0, 0, 8, 0), AccessibleName = Ui.Text(name) };
+            var choose = Button("Choose...", delegate {
+                using (var picker = new ColorDialog { Color = ColorTranslator.FromHtml(choice.HexValue), FullOpen = true }) {
+                    if (picker.ShowDialog(this) != DialogResult.OK) return;
+                    choice.HexValue = ColorHex(ColorTranslator.ToHtml(Color.FromArgb(picker.Color.R, picker.Color.G, picker.Color.B)));
+                    sample.SelectedColor = picker.Color; sample.Invalidate(); Hint(sample, choice.HexValue); Hint(choice, choice.HexValue);
+                    AppearanceChanged();
+                }
+            });
+            choose.AccessibleName = Ui.Text("Choose...") + " " + Ui.Text(name);
+            sample.Click += delegate { choose.PerformClick(); };
+            Hint(sample, choice.HexValue); Hint(choice, choice.HexValue);
+            choice.Controls.Add(sample); choice.Controls.Add(choose); return choice;
+        }
+        private sealed class ColorChoice : FlowLayoutPanel { public string HexValue; }
+        private sealed class ColorSwatchButton : Button {
+            public Color SelectedColor;
+            protected override void OnPaint(PaintEventArgs e) {
+                base.OnPaint(e);
+                var area = Rectangle.Inflate(ClientRectangle, -6, -6);
+                using (var fill = new SolidBrush(SelectedColor)) e.Graphics.FillRectangle(fill, area);
+                e.Graphics.DrawRectangle(SystemPens.ControlDarkDark, area);
+            }
         }
         private void AppearanceChanged() {
             if (initializing) return;
             settings.Shape = ((LocalizedChoice)shapes.SelectedItem).Id; settings.Size = (int)size.Value;
-            settings.Opacity = (int)opacity.Value; settings.X = (int)x.Value; settings.Y = (int)y.Value;
-            settings.MutedColor = ColorHex(mutedColor.Text); settings.OnColor = ColorHex(onColor.Text); settings.IconColor = ColorHex(iconColor.Text);
-            appearanceDirty = true; Render();
+            settings.Transparency = (int)transparency.Value;
+            settings.MutedColor = mutedColor.HexValue; settings.OnColor = onColor.HexValue; settings.IconColor = iconColor.HexValue;
+            appearanceDirty = true; Render(); RefreshSaveState();
         }
         private static string ColorHex(string value) {
             var c = ColorTranslator.FromHtml(value); return String.Format("#{0:X2}{1:X2}{2:X2}", c.R, c.G, c.B);
@@ -384,57 +451,40 @@ namespace Apeiron.GlobalMute {
         private void Preset(string corner) {
             var screen = monitors.SelectedItem as Screen ?? Screen.PrimaryScreen;
             Rectangle r = screen.WorkingArea; int margin = 24;
-            x.Value = corner.Contains("right") ? r.Right - settings.Size - margin : r.Left + margin;
-            y.Value = corner.Contains("Bottom") ? r.Bottom - settings.Size - margin : r.Top + margin;
-            controller.Preview(controller.Muted ?? true); Render();
+            settings.X = corner.Contains("right") ? r.Right - settings.Size - margin : r.Left + margin;
+            settings.Y = corner.Contains("Bottom") ? r.Bottom - settings.Size - margin : r.Top + margin;
+            appearanceDirty = true; controller.Preview(controller.Muted ?? true); Render(); RefreshSaveState();
         }
         private void FinishPlacement() {
             if (!controller.Placement) return;
             settings.X = overlay.Left; settings.Y = overlay.Top;
             controller.EndPlacement(); overlay.SetPlacementMode(false);
-            x.Value = Math.Max(x.Minimum, Math.Min(x.Maximum, settings.X));
-            y.Value = Math.Max(y.Minimum, Math.Min(y.Maximum, settings.Y));
+            settings.X = Math.Max(-30000, Math.Min(30000, settings.X));
+            settings.Y = Math.Max(-30000, Math.Min(30000, settings.Y));
             foreach (Control c in lookStack.Controls) c.Enabled = true;
             placeButton.Text = Ui.Text("Place by dragging"); placeButton.UseVisualStyleBackColor = true;
             placeButton.BackColor = SystemColors.Control; placeButton.ForeColor = SystemColors.ControlText; placeButton.Font = Font;
-            placementHint.Text = Ui.Text("Position applied. Save settings to keep it."); appearanceDirty = true; Render();
+            placementHint.Text = Ui.Text("Position applied. Save settings to keep it."); appearanceDirty = true; Render(); RefreshSaveState();
         }
         private void EnsureOverlayOnScreen() {
             Rectangle bounds = new Rectangle(settings.X, settings.Y, settings.Size, settings.Size);
             foreach (var screen in Screen.AllScreens) if (screen.WorkingArea.IntersectsWith(bounds)) return;
             settings.X = Screen.PrimaryScreen.WorkingArea.Left + 50; settings.Y = Screen.PrimaryScreen.WorkingArea.Top + 50;
-            if (x != null) { x.Value = settings.X; y.Value = settings.Y; }
         }
         private void BuildGeneral(TableLayoutPanel page) {
-            var recoveryGroup = Group(page, "Hold recovery");
-            fileRecovery = Check("Save Hold recovery to a file", settings.FileRecoveryEnabled); Add(recoveryGroup, fileRecovery);
-            Add(recoveryGroup, TextLabel("Off by default: Hold uses memory and does not write its recovery file. Available microphones are restored on release or normal exit. An unfinished recovery cannot survive restart while this option is off."));
-            Add(recoveryGroup, TextLabel("Enable file recovery to retain an unfinished Hold after a crash or restart. An existing recovery from an older version is completed even when this option is off."));
-            fileRecovery.CheckedChanged += delegate {
-                if (initializing) return;
-                try {
-                    if (fileRecovery.Checked) XmlFiles.WarmUpRecovery();
-                    recovery.SetEnabled(fileRecovery.Checked);
-                    settings.FileRecoveryEnabled = recovery.Enabled;
-                    footer.Text = recovery.Enabled ? Ui.Text("Hold recovery file enabled. Save settings to keep this choice.") : Ui.Text("Hold recovery uses memory. Save settings to keep this choice.");
-                } catch (Exception ex) {
-                    initializing = true; fileRecovery.Checked = recovery.Enabled; initializing = false;
-                    footer.Text = Ui.Text("Recovery setting was not changed: ") + ex.Message; Program.Log(ex);
-                }
-            };
             var adminGroup = Group(page, "Administrator rights");
             var privilegeStatus = TextLabel(elevation.OwnElevation == true ? Ui.Text("Running as Administrator.") :
                 elevation.OwnElevation == false ? Ui.Text("Running without Administrator rights.") : Ui.Text("Could not determine current Administrator status."));
             privilegeStatus.Font = new Font(Font, FontStyle.Bold); Add(adminGroup, privilegeStatus);
             offerAdminRestart = Check("Ask about Administrator rights at startup", settings.OfferAdministratorRestart); Add(adminGroup, offerAdminRestart);
-            offerAdminRestart.CheckedChanged += delegate { if (!initializing) settings.OfferAdministratorRestart = offerAdminRestart.Checked; };
+            offerAdminRestart.CheckedChanged += delegate { if (!initializing) { settings.OfferAdministratorRestart = offerAdminRestart.Checked; RefreshSaveState(); } };
             var restart = Button("Restart as Administrator", RestartElevated); restart.Enabled = elevation.OwnElevation != true; Add(adminGroup, restart);
             Add(adminGroup, TextLabel("When enabled, startup offers an Administrator restart unless the app is already elevated. The question appears once per session. Foreground privilege monitoring still shows mismatch warnings. Restart saves current settings first; Windows asks for elevation."));
             autoStart = Check("Start with Windows (in the tray)", settings.AutoStart); Add(page, autoStart);
             startMinimized = Check("Start minimized when opened manually", settings.StartMinimized); Add(page, startMinimized);
             Add(page, TextLabel("Startup changes take effect when you Save settings. Keep the EXE at its final location before enabling startup."));
-            autoStart.CheckedChanged += delegate { if (!initializing) settings.AutoStart = autoStart.Checked; };
-            startMinimized.CheckedChanged += delegate { if (!initializing) settings.StartMinimized = startMinimized.Checked; };
+            autoStart.CheckedChanged += delegate { if (!initializing) { settings.AutoStart = autoStart.Checked; RefreshSaveState(); } };
+            startMinimized.CheckedChanged += delegate { if (!initializing) { settings.StartMinimized = startMinimized.Checked; RefreshSaveState(); } };
             Add(page, Button("Open settings folder", delegate { Process.Start(new ProcessStartInfo("explorer.exe", "\"" + Program.DataDir + "\"") { UseShellExecute = true }); }));
             Add(page, Button("Copy diagnostics", CopyDiagnostics));
             Add(page, Button("Reset settings", delegate {
@@ -487,22 +537,21 @@ namespace Apeiron.GlobalMute {
         private void SetHotkeysPaused(bool paused) {
             input.SetPaused(paused, ApeironGlobalInput.IsActionKeyDown(settings.ToggleKey), ApeironGlobalInput.IsActionKeyDown(settings.HoldKey));
             SyncInput(); Render(); UpdateStatus();
-            footer.Text = paused ? Ui.Text("Hotkeys paused. Monitoring and manual controls remain active.") : Ui.Text("Hotkeys resumed.");
+            footer.Text = paused ? Ui.Text("Hotkeys paused.") : Ui.Text("Hotkeys resumed.");
             if (controller.HasPending && !controller.HoldActive) footer.Text += Ui.Text(" Hold recovery is pending for the selected microphone.");
         }
         private void BlockingChanged() {
             SyncInput();
-            footer.Text = input.Paused || !input.KeyBlockingEnabled ? Ui.Text("Blocking choice will apply when hotkeys and key blocking are enabled. Save settings to keep it after restart.") :
-                Ui.Text("Blocking choice applied. A key already held keeps its route until release. Save settings to keep this choice.");
+            footer.Text = Ui.Text("Blocking preference updated.");
         }
         private void SetKeyBlockingEnabled(bool enabled) {
             input.KeyBlockingEnabled = enabled;
             // Do not clear the mailbox or re-seed input here: a Hold release or
             // another quick shortcut press may already be queued on the hook thread.
             ApeironGlobalInput.UpdateBlocking(input.BlockToggleKey, input.BlockHoldKey); UpdateHotkeyControls();
-            footer.Text = enabled ? Ui.Text("Key blocking enabled for your individual choices. An existing press keeps its route until release.") :
-                Ui.Text("Key blocking off until restart. Toggle and Hold actions still work unless paused.");
+            footer.Text = Ui.Text(enabled ? "Key blocking enabled." : "Key blocking off.");
             if (input.Paused) footer.Text += Ui.Text(" Hotkeys are currently paused.");
+            RefreshSaveState();
         }
         private void UpdateHotkeyControls() {
             pauseHotkeys.Checked = input.Paused;
@@ -511,11 +560,12 @@ namespace Apeiron.GlobalMute {
             blockHold.Enabled = settings.HoldEnabled && KeySuppression.CanBlock(settings.HoldKey);
             trayPause.Checked = input.Paused;
             trayBlocking.Checked = input.KeyBlockingEnabled;
-            string status = input.Paused ? Ui.Text("Blocking inactive while hotkeys are paused.") :
-                !input.KeyBlockingEnabled ? Ui.Text("Blocking off. Toggle and Hold keys pass through to other apps.") :
-                input.BlockToggleKey && input.BlockHoldKey ? Ui.Text("Blocking active for Toggle and Hold.") :
-                input.BlockToggleKey ? Ui.Text("Blocking active for Toggle.") :
-                input.BlockHoldKey ? Ui.Text("Blocking active for Hold.") : Ui.Text("No enabled key is selected for blocking in Controls.");
+            bool assigned = BlockingShortcut.IsValid(settings.BlockingShortcutKey, settings.BlockingShortcutModifiers);
+            blockingShortcutEnabled.Enabled = assigned;
+            blockingShortcutEnabled.Checked = settings.BlockingShortcutEnabled;
+            blockingBinding.Text = BlockingShortcut.Format(settings.BlockingShortcutKey, settings.BlockingShortcutModifiers);
+            assignBlockingButton.Text = Ui.Text(assigned ? "Change..." : "Assign..."); clearBlockingButton.Enabled = assigned;
+            string status = InputStatusText.Blocking(input);
             blockingStatus.Text = status; trayBlocking.ToolTipText = status;
         }
         private void SaveSettings() {
@@ -523,7 +573,7 @@ namespace Apeiron.GlobalMute {
         }
         private bool TrySaveSettings() {
             FinishPlacement();
-            try { settings.Normalize(); Startup.Set(settings.AutoStart); XmlFiles.Write(Program.SettingsPath, settings); footer.Text = Ui.Text("Settings saved."); return true; }
+            try { settings.Normalize(); Startup.Set(settings.AutoStart); XmlFiles.Write(Program.SettingsPath, settings); settingsChanges.Accept(settings); RefreshSaveState(); footer.Text = Ui.Text("Settings saved."); return true; }
             catch (Exception ex) { footer.Text = Ui.Text("Could not save settings: ") + ex.Message; Program.Log(ex); return false; }
         }
         private void HideSettings() { FinishPlacement(); Hide(); }
@@ -535,7 +585,7 @@ namespace Apeiron.GlobalMute {
             controller.ReleaseHold();
             SyncInput(); Render(); UpdateStatus();
             if (!recovery.CanRestartSafely) {
-                footer.Text = Ui.Text("Reconnect the microphone to restore Hold, or enable recovery to a file before restarting.");
+                footer.Text = Ui.Text("Reconnect the microphone to restore Hold before restarting.");
                 return;
             }
             if (!TrySaveSettings()) return;
@@ -557,9 +607,9 @@ namespace Apeiron.GlobalMute {
                 Ui.Text("Microphone: ") + settings.DeviceName + Environment.NewLine + Ui.Text("Connected: ") + controller.Ready + Environment.NewLine +
                 Ui.Text("Windows mute: ") + (controller.Muted.HasValue ? controller.Muted.Value.ToString() : Ui.Text("Unknown")) + Environment.NewLine +
                 Ui.Text("Hold active: ") + controller.HoldActive + Environment.NewLine + Ui.Text("Hold recovery pending: ") + controller.HasPending + Environment.NewLine +
-                Ui.Text("Recovery file enabled: ") + recovery.Enabled + Environment.NewLine + Ui.Text("Recovery retained on disk: ") + recovery.HasPersistedRecovery + Environment.NewLine +
+                Ui.Text("Legacy recovery pending: ") + recovery.HasLegacyRecovery + Environment.NewLine +
                 Ui.Text("Block Toggle / Hold keys: ") + settings.BlockToggleKey + " / " + settings.BlockHoldKey + Environment.NewLine +
-                Ui.Text("Key blocking enabled (session): ") + input.KeyBlockingEnabled + Environment.NewLine +
+                Ui.Text("Key blocking enabled: ") + input.KeyBlockingEnabled + Environment.NewLine +
                 Ui.Text("Effective Toggle / Hold blocking: ") + input.BlockToggleKey + " / " + input.BlockHoldKey + Environment.NewLine +
                 Ui.Text("Toggle / Hold binding: ") + KeyName(settings.ToggleKey) + " / " + KeyName(settings.HoldKey) + Environment.NewLine +
                 Ui.Text("Hotkeys paused: ") + input.Paused + Environment.NewLine +
@@ -584,7 +634,7 @@ namespace Apeiron.GlobalMute {
             ApeironGlobalInput.ClearPresses(); input.Sync(ApeironGlobalInput.IsActionKeyDown(settings.ToggleKey), ApeironGlobalInput.IsActionKeyDown(settings.HoldKey));
             ApeironGlobalInput.ConfigureWakeup(settings.ToggleKey, settings.HoldKey, input.ToggleEnabled, input.HoldEnabled, input.BlockToggleKey, input.BlockHoldKey,
                 settings.BlockingShortcutKey, settings.BlockingShortcutModifiers, settings.BlockingShortcutEnabled && !input.Paused, QueueControlInput);
-            UpdateHotkeyControls();
+            UpdateHotkeyControls(); RefreshSaveState();
         }
         private void QueueControlInput() {
             // Runs on the hook thread: queue only; never do audio, disk I/O or UI work here.
@@ -732,7 +782,7 @@ namespace Apeiron.GlobalMute {
                 SystemEvents.PowerModeChanged -= OnPowerMode; SystemEvents.SessionSwitch -= OnSessionSwitch;
                 try { controller.Dispose(); } catch (Exception ex) { Program.Log(ex); }
                 ApeironGlobalInput.ConfigureWakeup(0, 0, false, false, false, false, null);
-                ApeironGlobalInput.Stop(); tray.Visible = false; tray.Dispose(); overlay.Dispose();
+                ApeironGlobalInput.Stop(); tray.Visible = false; tray.Dispose(); overlay.Dispose(); hints.Dispose();
             }
             base.Dispose(disposing);
         }

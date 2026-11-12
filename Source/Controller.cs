@@ -136,7 +136,7 @@ namespace Apeiron.GlobalMute {
             try {
                 pending = new PendingRestore { DeviceId = Settings.DeviceId,
                     DeviceName = Settings.DeviceName, Muted = ReadMute(timing) };
-                // Never change the mic until its restoration has been written successfully.
+                // Retain the original state in memory before changing the microphone.
                 var journalWatch = Stopwatch.StartNew();
                 try { store.Save(pending); }
                 finally { timing.JournalMilliseconds += journalWatch.Elapsed.TotalMilliseconds; }
@@ -229,13 +229,16 @@ namespace Apeiron.GlobalMute {
         private readonly Controller controller;
         private bool toggleWasDown, holdWasDown, suppressToggle, suppressHold;
         public bool Paused { get; private set; }
-        // Like Pause, the tray override lasts only for this process. Per-key choices stay saved in Settings.
-        public bool KeyBlockingEnabled { get; set; }
+        // Changes apply immediately, but only Save settings persists them. Pause remains session-only.
+        public bool KeyBlockingEnabled {
+            get { return controller.Settings.KeyBlockingEnabled; }
+            set { controller.Settings.KeyBlockingEnabled = value; }
+        }
         public bool ToggleEnabled { get { return !Paused && controller.Settings.ToggleEnabled; } }
         public bool HoldEnabled { get { return !Paused && controller.Settings.HoldEnabled; } }
         public bool BlockToggleKey { get { return KeyBlockingEnabled && ToggleEnabled && controller.Settings.BlockToggleKey && KeySuppression.CanBlock(controller.Settings.ToggleKey); } }
         public bool BlockHoldKey { get { return KeyBlockingEnabled && HoldEnabled && controller.Settings.BlockHoldKey && KeySuppression.CanBlock(controller.Settings.HoldKey); } }
-        public InputRouter(Controller controller) { this.controller = controller; KeyBlockingEnabled = true; }
+        public InputRouter(Controller controller) { this.controller = controller; }
         public void SetPaused(bool paused, bool toggle, bool hold) {
             if (Paused == paused) return;
             Paused = paused;

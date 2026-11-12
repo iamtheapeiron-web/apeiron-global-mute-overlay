@@ -1,8 +1,8 @@
 1 ICON "Assets/APEIRON.ico"
 1 24 "Source/app.manifest"
 1 VERSIONINFO
-FILEVERSION 0,1,0,9
-PRODUCTVERSION 0,1,0,9
+FILEVERSION 0,1,0,10
+PRODUCTVERSION 0,1,0,10
 FILEFLAGSMASK 0x3f
 FILEFLAGS 0x2
 FILEOS 0x40004
@@ -15,11 +15,11 @@ BEGIN
     BEGIN
       VALUE "CompanyName", "APEIRON\0"
       VALUE "FileDescription", "APEIRON Global Mute Overlay\0"
-      VALUE "FileVersion", "0.1.0.9\0"
+      VALUE "FileVersion", "0.1.0.10\0"
       VALUE "InternalName", "APEIRON_Global_Mute_Overlay\0"
       VALUE "OriginalFilename", "APEIRON_Global_Mute_Overlay.exe\0"
       VALUE "ProductName", "APEIRON Global Mute Overlay\0"
-      VALUE "ProductVersion", "0.1.0-beta.2\0"
+      VALUE "ProductVersion", "0.1.0-beta.3\0"
     END
   END
   BLOCK "VarFileInfo"

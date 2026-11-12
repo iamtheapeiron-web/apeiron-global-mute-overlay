@@ -10,7 +10,7 @@ using Microsoft.Win32;
 namespace Apeiron.GlobalMute {
     internal static class Program {
         internal const string Name = "APEIRON Global Mute Overlay";
-        internal const string Version = "0.1.0-beta.2";
+        internal const string Version = "0.1.0-beta.3";
         internal static readonly string DataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "APEIRON_Global_Mute_Overlay");
         internal static readonly string SettingsPath = Path.Combine(DataDir, "settings.xml");
         internal static string ExePath { get { return Assembly.GetExecutingAssembly().Location; } }

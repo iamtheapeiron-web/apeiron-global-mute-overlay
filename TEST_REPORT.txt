@@ -1,34 +1,38 @@
-APEIRON Global Mute Overlay v0.1.0-beta.2 (numeric revision 0.1.0.9)
-Verification date: 2026-11-12
+APEIRON Global Mute Overlay v0.1.0-beta.3 RU / numeric revision 0.1.0.10
+Verification date: 2026-11-13 (Asia/Tbilisi)
 
-PASS: both compiled delivery executables (EN and RU), each with:
-- 490 parameter combinations, 20,000 seeded actions, 66,912 assertions.
-- Controller / mic-state restoration, failures, disconnect/reconnect, preview rules.
-- Recovery in memory by default and optional disk storage.
-- Pause and shared/per-key blocking, stable physical down/up routes.
-- Blocking shortcut exact modifiers, auto-repeat, capture/pause, release order,
-  reconfiguration, key-held-before-assignment, priority over shared Toggle/Hold keys.
-- Shortcut-owned input excluded from normal asynchronous-state reconciliation.
-- Multiple queued blocking commands preserved and drained once.
-- Master change during active Hold preserves release and creates no recovery-file writes.
-- Settings schema 3 -> 4, device/bindings/appearance/preferences preserved.
-- Fixed compile-language behavior; localized shape display keeps stable IDs.
-- Windows COM interface identities and vtable/structure layouts.
-- x64 managed GUI PE; NX/ASLR; seven icon sizes; version metadata; CLR entry point.
-- asInvoker, DPI-aware Windows manifest; matching assembly/native/manifest version.
+PASS: RU delivery EXE - 430 parameter combinations, 20,000 seeded actions,
+66,732 assertions. Tests reference the compiled production executable.
 
-Tests ran with a portable Mono compiler/runtime and fake audio backend.
-No test warnings or failures in the final run.
+Coverage includes the existing controller, COM declarations, overlay rules,
+Toggle/Hold priority, disconnect/reconnect, failure handling, latched suppression,
+shortcuts, input queue and pause/master interactions, plus:
+- Memory-only new Hold recovery, with zero recovery-file writes/deletes after startup.
+- Real legacy-file load/restore/deletion, failed deletion retry and exact-device pinning.
+- Schema 4 -> 5 migration ignoring the old file opt-in without resetting user choices.
+- Shared blocking default off and Save/restart persistence for both states.
+- 0-95% transparency, preservation of prior visual opacity and stable coordinates.
+- All five normal and three Hold choices retained with stable enum mappings.
+- Every user-editable settings field checked for dirty/revert/accept behavior.
+- Device-name refresh, pause, mic actions and preview do not dirty settings.
+- RU omits the layout explanation; English source retains it.
 
-NOT EXECUTED: real Windows Core Audio/hardware, native global hooks, keyboard
-capture, UAC, startup registry behavior, real tray/GUI/DPI layout, game compatibility.
-An attempted non-Windows layout preview could not open a display and produced
-no visual validation. This is a beta candidate for Windows testing, not a claim
-that these integration checks passed. See docs/WINDOWS_CHECKLIST_RU.txt.
+PASS: PE/resource verification - x64 managed GUI, NX/ASLR, valid CLR entry point,
+seven original icon sizes, matching product/file/assembly/manifest versions,
+asInvoker and DPI-aware manifest. Final build/tests: no warnings or failures.
 
-Public GitHub beta.1 remains unchanged. Beta.2 assets have not been published
-as a GitHub release by this task.
+VISUAL CHECK: same C# interface sources in an isolated Mono/Linux layout harness.
+Verified compact sections, effective blocking status, unsaved indicator,
+visible red/green/white swatches, transparency slider reaching 95%, readable
+five-choice dropdown, retained placement controls and absence of file-recovery UI.
+PNG-compressed Windows icons are unsupported by Mono; the layout harness
+substitutes a classic icon. Delivery EXE keeps the original branding/resources.
+The harness does not start production hooks, audio enumeration, UAC or timers;
+external actions such as Save/startup/Administrator/reset are disabled.
 
-EXE SHA256:
-EN: 179403e95e82c98cab2dc8d5b92428924229d758932f18e663b2959b3350a3ba
-RU: 0b525ce1d5bf4772b182895a10f2a99ed5a995c09eb66229abb31133ed5505d1
+NOT EXECUTED: real Windows audio/hardware, native input/capture, UAC, startup,
+Windows-specific GUI/DPI, tray/taskbar or games. EN beta.3 was not built/tested.
+No beta.3 GitHub release was published. See docs/WINDOWS_CHECKLIST_RU.txt.
+
+RU EXE SHA256:
+63bf7e513aa5038e2511788fa1bb810d6ed59ec52ca266a5dba15a24ed864c36

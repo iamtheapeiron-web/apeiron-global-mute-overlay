@@ -66,7 +66,7 @@ public static partial class Tests {
         foreach (int commandKey in new[] { 120, 121, 75 })
         foreach (bool master in new[] { false, true }) {
             scenarios++;
-            using (var f = new Fixture(original, false)) {
+            using (var f = new Fixture(original, true)) {
                 f.S.BlockToggleKey = f.S.BlockHoldKey = true; f.Router.KeyBlockingEnabled = master;
                 var shortcut = new BlockingShortcut(); shortcut.Configure(commandKey, ctrl, true, false);
                 var gate = new KeySuppression(); ConfigureBlocking(f, gate, false, false);
@@ -107,7 +107,7 @@ public static partial class Tests {
         try {
             File.WriteAllText(path, "<Settings><SchemaVersion>3</SchemaVersion><DeviceId>A</DeviceId><DeviceName>Микрофон</DeviceName><ToggleKey>119</ToggleKey><HoldKey>192</HoldKey><Shape>Rounded square</Shape><BlockToggleKey>true</BlockToggleKey><BlockHoldKey>false</BlockHoldKey></Settings>");
             var settings = XmlFiles.Read<Settings>(path); settings.Normalize();
-            Assert(settings.SchemaVersion == 4 && settings.DeviceId == "A" && settings.DeviceName == "Микрофон" && settings.ToggleKey == 119 && settings.HoldKey == 192 &&
+            Assert(settings.SchemaVersion == 5 && settings.DeviceId == "A" && settings.DeviceName == "Микрофон" && settings.ToggleKey == 119 && settings.HoldKey == 192 &&
                 settings.BlockToggleKey && !settings.BlockHoldKey && settings.Shape == "Rounded square" && !settings.BlockingShortcutEnabled && settings.BlockingShortcutKey == 0,
                 "Beta1 migration preserves user mic/bindings/blocking/shape; new shortcut is unassigned");
             settings.BlockingShortcutKey = 120; settings.BlockingShortcutModifiers = combination; settings.BlockingShortcutEnabled = true;

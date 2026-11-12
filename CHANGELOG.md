@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.0-beta.3 (RU iteration)
+
+- Apply the agreed compact Controls/Appearance layout and shorter contextual help.
+- Shared blocking defaults off and persists on Save; shortcut enable checkbox retained.
+- Display rules become dropdowns in Appearance with all behaviors preserved.
+- Transparency slider/number, 0-95%; original opacity remains the stored format.
+- Color swatches and explicit preview labels; X/Y fields removed with placement retained.
+- Disk-free unsaved-settings indicator; manual mic actions, previews and pause do not dirty settings.
+- Memory-only new Hold recovery; read/retire legacy recovery, no new recovery writer.
+- RU omits the US-layout explanation; English source retains it.
+- Build and test the RU executable only; no GitHub release publication.
+
+
 ## 0.1.0-beta.2
 
 - Separate fixed-language RU and EN downloads with no language selector.

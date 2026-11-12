@@ -1,48 +1,26 @@
 # APEIRON Global Mute Overlay
 
-A Windows microphone mute utility with global hotkeys and a configurable desktop indicator. Free and open source under MIT.
+Windows microphone mute hotkeys and a configurable desktop indicator. MIT licensed, C# WinForms, Windows 10/11 x64.
 
-Version **0.1.0-beta.2**, Windows 10/11 x64. [Русское описание](README_RU.md).
+## Current development build
 
-## Language downloads
+**0.1.0-beta.3 RU** prepares the agreed interface changes. Only the Russian executable was built and tested in this iteration. [Русское описание](README_RU.md).
 
-Choose the archive marked **EN** or **RU**. Each executable has a fixed interface language; there is no language selector. Both builds use the same settings and single-instance identity.
+- Shared key blocking starts off when there is no saved choice. Save settings now persists its current state; individual Toggle/Hold preferences are preserved.
+- Compact blocking controls include the effective status, an assignable modifier combination and its independent enable checkbox.
+- Display rules move to Appearance as two dropdowns, retaining all five normal rules and three Hold rules.
+- Transparency uses a slider and numeric field, 0-95%, with the original stored opacity retained for visual compatibility.
+- Color swatches, bordered white swatch, explicit previews and saved drag/corner positioning replace raw coordinates.
+- A persistent unsaved-changes marker distinguishes applied settings from saved settings.
+- New Hold recovery is memory-only. A legacy file is only read and retired after restoration; it cannot enable new recovery writes.
+- The US-keyboard-layout explanation is absent from RU and retained in the English source.
 
-- `APEIRON-Global-Mute-Overlay-v0.1.0-beta.2-EN-win-x64.zip`
-- `APEIRON-Global-Mute-Overlay-v0.1.0-beta.2-RU-win-x64.zip`
+The microphone tab's content and the core Toggle/Hold behavior are retained. Pause remains session-only. No extra tray status icons were added.
 
-This branch prepares beta.2. Its assets have not been published as a GitHub release.
-[Published releases](https://github.com/iamtheapeiron-web/apeiron-global-mute-overlay/releases).
+This branch contains source for review; beta.3 has not been published as a GitHub release. [Published releases](https://github.com/iamtheapeiron-web/apeiron-global-mute-overlay/releases).
 
-## Features
+See [instructions](docs/README_RU.txt), [Windows checklist](docs/WINDOWS_CHECKLIST_RU.txt), [building](BUILDING.md) and [verification](TEST_REPORT.txt).
 
-- Toggle the mute state of one selected Windows recording device.
-- Hold a key to temporarily reverse its state; release restores the original state.
-- Configure the indicator's position, shape, size, opacity, colors and display rules.
-- Set individual Toggle/Hold key blocking and change the shared blocking option from settings, tray, or a configurable modifier combination.
-- Pause hotkeys while keeping monitoring, the indicator and manual controls active.
-- Optional recovery file, Administrator restart prompt and Windows startup.
-
-## New blocking combination
-
-Open **Controls - Key blocking shortcut - Assign combination**. Press Ctrl, Alt or Shift with another keyboard key, release all keys and Save settings. It starts unassigned.
-
-The combination only toggles **Block keys in other apps**. Microphone actions keep working when blocking is off, and individual preferences remain saved. The combination itself remains reserved in other apps even with shared blocking off; modifiers pass through normally. Pause hotkeys also pauses the command. Auto-repeat produces no extra toggles.
-
-The base key may match Toggle/Hold: the full combination has priority over the mic action. Its modifiers cannot also be enabled standalone mic keys. Windows-key combinations, Esc and Ctrl+Alt+Delete are not supported.
-
-## Updating and setup
-
-Save settings and Exit the old version from its tray icon. Extract the chosen language archive to a permanent folder and run the EXE. Existing settings are retained. If the EXE moved, Save settings to update its startup path.
-
-Choose a microphone, assign keys and Save settings. Defaults are F9 Toggle / F10 Hold. The new blocking combination has no default. Restart clears hotkey pause and enables shared blocking with the saved individual choices.
-
-See [English instructions](docs/README_EN.txt), [Russian instructions](docs/README_RU.txt), [Windows checks](docs/WINDOWS_CHECKLIST_RU.txt) and [building](BUILDING.md).
-
-## Beta limits and feedback
-
-The app controls Windows endpoint mute without recording audio. App-specific mutes and hardware switches not exposed to Windows are not reported. Exclusive audio access may bypass software mute; exclusive fullscreen may hide the indicator. Global input depends on privileges and game restrictions. These builds are unsigned.
-
-Portable tests use a fake audio backend. Real Windows audio, hooks/UAC, games and GUI layout still require Windows validation for beta.2. See [TEST_REPORT.txt](TEST_REPORT.txt). When reporting an issue, include actions, expected/actual results, Windows version, microphone/game and General - Copy diagnostics when possible.
+The executable is unsigned. Windows endpoint mute can be bypassed by exclusive audio access. Exclusive fullscreen may hide the indicator. Real Windows audio, hooks, UAC, startup and games need Windows validation.
 
 [Website](https://apeiron.framer.media/) | [Support](https://www.paypal.com/paypalme/StanislavMed)
