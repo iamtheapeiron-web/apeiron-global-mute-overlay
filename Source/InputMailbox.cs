@@ -4,6 +4,7 @@ namespace Apeiron.GlobalMute {
     public struct InputSnapshot {
         public bool ToggleDown, HoldDown, TogglePressed, HoldPressed, HasEvent;
         public double QueueMilliseconds;
+        public int BlockingToggleCount;
     }
 
     // Hook callbacks only record input and schedule a wake-up; they do no audio or file I/O.
@@ -15,16 +16,26 @@ namespace Apeiron.GlobalMute {
         private int toggleKey, holdKey;
         private Action wakeup;
         private double? pendingSince;
+        private int blockingToggleCount;
         public InputMailbox(IClock clock) { this.clock = clock; }
         public void Configure(int toggle, int hold, bool toggleDown, bool holdDown, Action notify) {
             lock (sync) {
-                toggleKey = toggle; holdKey = hold; wakeup = notify; pendingSince = null;
+                toggleKey = toggle; holdKey = hold; wakeup = notify; pendingSince = null; blockingToggleCount = 0;
                 Array.Clear(pressed, 0, pressed.Length);
                 if (Valid(toggle)) { down[toggle] = toggleDown; transition[toggle] = clock.Now; }
                 if (Valid(hold)) { down[hold] = holdDown; transition[hold] = clock.Now; }
             }
         }
         private static bool Valid(int key) { return key > 0 && key < 256; }
+        public void RequestBlockingToggle() {
+            Action notify;
+            lock (sync) {
+                blockingToggleCount++;
+                if (!pendingSince.HasValue) pendingSince = clock.Now;
+                notify = wakeup;
+            }
+            if (notify != null) notify();
+        }
         public void Record(int key, bool state) {
             if (!Valid(key)) return;
             Action notify = null;
@@ -55,13 +66,14 @@ namespace Apeiron.GlobalMute {
                     ToggleDown = Valid(toggleKey) && down[toggleKey], HoldDown = Valid(holdKey) && down[holdKey],
                     TogglePressed = Valid(toggleKey) && pressed[toggleKey], HoldPressed = Valid(holdKey) && pressed[holdKey],
                     HasEvent = pendingSince.HasValue,
+                    BlockingToggleCount = blockingToggleCount,
                     QueueMilliseconds = pendingSince.HasValue ? Math.Max(0, (clock.Now - pendingSince.Value) * 1000) : 0
                 };
                 if (Valid(toggleKey)) pressed[toggleKey] = false;
                 if (Valid(holdKey)) pressed[holdKey] = false;
-                pendingSince = null; return value;
+                pendingSince = null; blockingToggleCount = 0; return value;
             }
         }
-        public void ClearPresses() { lock (sync) { Array.Clear(pressed, 0, pressed.Length); pendingSince = null; } }
+        public void ClearPresses() { lock (sync) { Array.Clear(pressed, 0, pressed.Length); pendingSince = null; blockingToggleCount = 0; } }
     }
 }

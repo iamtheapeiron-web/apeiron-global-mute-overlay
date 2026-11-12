@@ -83,6 +83,7 @@ public static class ApeironGlobalInput {
     private static IntPtr mouseHook = IntPtr.Zero;
     private static readonly Apeiron.GlobalMute.InputMailbox input = new Apeiron.GlobalMute.InputMailbox(new Apeiron.GlobalMute.MonotonicClock());
     private static readonly Apeiron.GlobalMute.KeySuppression suppression = new Apeiron.GlobalMute.KeySuppression();
+    private static readonly Apeiron.GlobalMute.BlockingShortcut shortcut = new Apeiron.GlobalMute.BlockingShortcut();
     private static readonly uint ownProcessId = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
     private static volatile bool bypassSuppression;
     private static int toggleKey, holdKey;
@@ -145,21 +146,37 @@ public static class ApeironGlobalInput {
     public static bool IsDown(int vk) {
         if (vk <= 0 || vk >= 256) return false;
         // Suppressed downs may never appear in GetAsyncKeyState. The hook owns their state.
-        if (suppression.IsBlockedDown(vk)) return true;
+        if (suppression.IsBlockedDown(vk) || shortcut.IsConsumedDown(vk)) return true;
         // Repair missed key-ups for pass-through input. Suppressed input uses hook-owned state above.
         return (GetAsyncKeyState(vk) & 0x8000) != 0;
     }
 
     public static void ConfigureWakeup(int toggle, int hold, bool toggleEnabled, bool holdEnabled, bool blockToggle, bool blockHold, Action wakeup) {
+        ConfigureWakeup(toggle, hold, toggleEnabled, holdEnabled, blockToggle, blockHold,
+            0, Apeiron.GlobalMute.ShortcutModifiers.None, false, wakeup);
+    }
+    public static bool IsActionKeyDown(int vk) { return shortcut.IsActionDown(vk, IsDown(vk)); }
+    public static Apeiron.GlobalMute.ShortcutModifiers ReadModifiers() {
+        var mods = Apeiron.GlobalMute.ShortcutModifiers.None;
+        if (IsDown(162) || IsDown(163)) mods |= Apeiron.GlobalMute.ShortcutModifiers.Control;
+        if (IsDown(164) || IsDown(165)) mods |= Apeiron.GlobalMute.ShortcutModifiers.Alt;
+        if (IsDown(160) || IsDown(161)) mods |= Apeiron.GlobalMute.ShortcutModifiers.Shift;
+        if (IsDown(91) || IsDown(92)) mods |= Apeiron.GlobalMute.ShortcutModifiers.Windows;
+        return mods;
+    }
+    public static void ConfigureWakeup(int toggle, int hold, bool toggleEnabled, bool holdEnabled, bool blockToggle, bool blockHold,
+        int shortcutKey, Apeiron.GlobalMute.ShortcutModifiers modifiers, bool shortcutEnabled, Action wakeup) {
         toggleKey = toggle; holdKey = hold;
-        bool td = IsDown(toggle), hd = IsDown(hold);
+        shortcut.Configure(shortcutKey, modifiers, shortcutEnabled, IsDown(shortcutKey));
+        bool td = IsActionKeyDown(toggle), hd = IsActionKeyDown(hold);
         suppression.Configure(toggle, hold, toggleEnabled, holdEnabled, blockToggle, blockHold, td, hd);
         input.Configure(toggle, hold, td, hd, wakeup);
     }
+    public static void UpdateBlocking(bool blockToggle, bool blockHold) { suppression.UpdateBlocking(blockToggle, blockHold); }
     public static void SetSuppressionBypass(bool bypass) { bypassSuppression = bypass; }
 
     public static Apeiron.GlobalMute.InputSnapshot ConsumeSnapshot(bool reconcile) {
-        return input.Take(reconcile, reconcile && IsDown(toggleKey), reconcile && IsDown(holdKey));
+        return input.Take(reconcile, reconcile && IsActionKeyDown(toggleKey), reconcile && IsActionKeyDown(holdKey));
     }
 
     public static void ClearPresses() {
@@ -172,9 +189,12 @@ public static class ApeironGlobalInput {
             IntPtr window = ApeironNative.GetForegroundWindow(); uint pid;
             passThrough = window != IntPtr.Zero && ApeironNative.GetWindowThreadProcessId(window, out pid) != 0 && pid == ownProcessId;
         }
-        bool block = suppression.Process(vk, down, passThrough);
-        input.Record(vk, down);
-        return block;
+        var modifiers = shortcut.NeedsModifiers(vk, down) ? ReadModifiers() : Apeiron.GlobalMute.ShortcutModifiers.None;
+        var command = shortcut.Process(vk, down, modifiers, passThrough, !bypassSuppression);
+        bool block = suppression.Process(vk, down, passThrough || command.SkipActions);
+        if (!command.SkipActions) input.Record(vk, down);
+        if (command.Triggered) input.RequestBlockingToggle();
+        return block || command.Suppress;
     }
 
     private static IntPtr KeyboardHook(int nCode, IntPtr wParam, IntPtr lParam) {

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
-  <assemblyIdentity version="0.1.0.8" name="APEIRON.GlobalMuteOverlay" processorArchitecture="amd64" type="win32"/>
+  <assemblyIdentity version="0.1.0.9" name="APEIRON.GlobalMuteOverlay" processorArchitecture="amd64" type="win32"/>
   <description>APEIRON Global Mute Overlay</description>
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
     <security><requestedPrivileges><requestedExecutionLevel level="asInvoker" uiAccess="false"/></requestedPrivileges></security>

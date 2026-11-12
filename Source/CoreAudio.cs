@@ -57,9 +57,9 @@ namespace Apeiron.GlobalMute {
                 enumerator = Enumerator();
                 Check(enumerator.GetDevice(deviceId, out device));
                 uint state; Check(device.GetState(out state));
-                if (state != 1) throw new InvalidOperationException("The selected microphone is disconnected or disabled.");
+                if (state != 1) throw new InvalidOperationException(Ui.Text("The selected microphone is disconnected or disabled."));
                 int flow; Check(((IMMEndpoint)device).GetDataFlow(out flow));
-                if (flow != 1) throw new InvalidOperationException("The selected device is not a recording device.");
+                if (flow != 1) throw new InvalidOperationException(Ui.Text("The selected device is not a recording device."));
                 Guid iid = typeof(IAudioEndpointVolume).GUID;
                 Check(device.Activate(ref iid, 23, IntPtr.Zero, out activated)); // CLSCTX_ALL
                 volume = (IAudioEndpointVolume)activated; activated = null;
@@ -72,16 +72,16 @@ namespace Apeiron.GlobalMute {
             finally { Release(activated); Release(device); Release(enumerator); }
         }
         public bool GetMute() {
-            if (volume == null) throw new InvalidOperationException("The selected microphone is unavailable.");
+            if (volume == null) throw new InvalidOperationException(Ui.Text("The selected microphone is unavailable."));
             bool muted; Check(volume.GetMute(out muted)); return muted;
         }
         public void ValidateDevice() {
-            if (connectedDevice == null) throw new InvalidOperationException("The selected microphone is unavailable.");
+            if (connectedDevice == null) throw new InvalidOperationException(Ui.Text("The selected microphone is unavailable."));
             uint state; Check(connectedDevice.GetState(out state));
-            if (state != 1) throw new InvalidOperationException("The selected microphone is disconnected or disabled.");
+            if (state != 1) throw new InvalidOperationException(Ui.Text("The selected microphone is disconnected or disabled."));
         }
         public void SetMute(bool muted) {
-            if (volume == null) throw new InvalidOperationException("The selected microphone is unavailable.");
+            if (volume == null) throw new InvalidOperationException(Ui.Text("The selected microphone is unavailable."));
             Guid context = new Guid("c418ac92-1881-4689-856d-d56b967411d2");
             Check(volume.SetMute(muted, ref context));
         }

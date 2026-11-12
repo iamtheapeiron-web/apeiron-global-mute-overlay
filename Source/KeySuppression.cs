@@ -21,6 +21,9 @@ namespace Apeiron.GlobalMute {
             if (key <= 0 || key >= 256 || blocked[key]) return;
             down[key] = state; // A key already held before capture remains pass-through until release.
         }
+        public void UpdateBlocking(bool consumeToggle, bool consumeHold) {
+            lock (sync) { blockToggle = consumeToggle; blockHold = consumeHold; }
+        }
         public bool Process(int key, bool state, bool passThroughContext) {
             if (key <= 0 || key >= 256) return false;
             lock (sync) {

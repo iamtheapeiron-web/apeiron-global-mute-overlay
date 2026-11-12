@@ -6,7 +6,7 @@ namespace Apeiron.GlobalMute {
     public class DeviceInfo {
         public string Id, Name;
         public bool IsDefault;
-        public override string ToString() { return Name + (IsDefault ? " (Windows default)" : ""); }
+        public override string ToString() { return Name + (IsDefault ? Ui.Text(" (Windows default)") : ""); }
     }
     public interface IAudio : IDisposable {
         List<DeviceInfo> Enumerate();
@@ -62,7 +62,7 @@ namespace Apeiron.GlobalMute {
             if (device.Id == Settings.DeviceId) { Reconnect(); return Ready; }
             ReleaseHold();
             if (HasPending) {
-                Error = "Restore Hold on the previous microphone before choosing another device.";
+                Error = Ui.Text("Restore Hold on the previous microphone before choosing another device.");
                 return false;
             }
             audio.Disconnect(); Ready = false; Muted = null;
@@ -83,7 +83,7 @@ namespace Apeiron.GlobalMute {
                     Ready = true;
                     if (HasPending) {
                         if (Pending.DeviceId != Settings.DeviceId)
-                            throw new InvalidOperationException("Hold recovery belongs to another microphone. Select that device to restore it.");
+                            throw new InvalidOperationException(Ui.Text("Hold recovery belongs to another microphone. Select that device to restore it."));
                         RestorePending();
                     }
                     Muted = audio.GetMute(); Error = ""; RestoreBaseOverlay();
@@ -116,7 +116,7 @@ namespace Apeiron.GlobalMute {
             try { confirmed = audio.GetMute(); }
             finally { if (timing != null) timing.ConfirmMilliseconds += watch.Elapsed.TotalMilliseconds; }
             if (confirmed != value)
-                throw new InvalidOperationException("Windows did not confirm the requested mute state.");
+                throw new InvalidOperationException(Ui.Text("Windows did not confirm the requested mute state."));
         }
         public void Toggle() {
             if (!Ready || HoldActive || HasPending) return;
@@ -140,7 +140,7 @@ namespace Apeiron.GlobalMute {
                 var journalWatch = Stopwatch.StartNew();
                 try { store.Save(pending); }
                 finally { timing.JournalMilliseconds += journalWatch.Elapsed.TotalMilliseconds; }
-            } catch (Exception ex) { Error = "Hold could not start: " + ex.Message; return; }
+            } catch (Exception ex) { Error = Ui.Text("Hold could not start: ") + ex.Message; return; }
             Pending = pending;
             try {
                 SetConfirmed(!pending.Muted, timing);
@@ -154,7 +154,7 @@ namespace Apeiron.GlobalMute {
         private void RestorePending(ActionTiming timing = null) {
             if (!HasPending) return;
             if (audio.ConnectedId != Pending.DeviceId)
-                throw new InvalidOperationException("Cannot restore Hold to a different microphone.");
+                throw new InvalidOperationException(Ui.Text("Cannot restore Hold to a different microphone."));
             bool original = Pending.Muted;
             if (ReadMute(timing) != original) SetConfirmed(original, timing);
             var watch = Stopwatch.StartNew();

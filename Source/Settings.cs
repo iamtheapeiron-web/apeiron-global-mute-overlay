@@ -8,7 +8,7 @@ namespace Apeiron.GlobalMute {
     public enum HoldRule { FollowNormal, Always, Hidden }
 
     public class Settings {
-        public int SchemaVersion = 3;
+        public int SchemaVersion = 4;
         public string DeviceId = "", DeviceName = "";
         public bool ToggleEnabled = true, HoldEnabled = true;
         public int ToggleKey = 120, HoldKey = 121;
@@ -22,13 +22,20 @@ namespace Apeiron.GlobalMute {
         public bool FileRecoveryEnabled = false;
         public bool OfferAdministratorRestart = true;
         public bool BlockToggleKey = false, BlockHoldKey = true;
+        public bool BlockingShortcutEnabled = false;
+        public int BlockingShortcutKey = 0;
+        public ShortcutModifiers BlockingShortcutModifiers = ShortcutModifiers.None;
 
         public void Normalize() {
-            SchemaVersion = 3;
+            SchemaVersion = 4;
             DeviceId = DeviceId ?? ""; DeviceName = DeviceName ?? "";
             if (ToggleKey < 1 || ToggleKey > 254) ToggleKey = 120;
             if (HoldKey < 1 || HoldKey > 254) HoldKey = 121;
             if (ToggleEnabled && HoldEnabled && ToggleKey == HoldKey) HoldEnabled = false;
+            if (!BlockingShortcut.IsValid(BlockingShortcutKey, BlockingShortcutModifiers)) {
+                BlockingShortcutEnabled = false; BlockingShortcutKey = 0; BlockingShortcutModifiers = ShortcutModifiers.None;
+            }
+            if (BlockingShortcut.Conflicts(this, BlockingShortcutModifiers)) BlockingShortcutEnabled = false;
             if (!Enum.IsDefined(typeof(NormalRule), Normal)) Normal = NormalRule.OnChange;
             if (!Enum.IsDefined(typeof(HoldRule), DuringHold)) DuringHold = HoldRule.Always;
             if (Double.IsNaN(PopupSeconds) || Double.IsInfinity(PopupSeconds)) PopupSeconds = 2.5;
@@ -93,7 +100,7 @@ namespace Apeiron.GlobalMute {
             if (!File.Exists(path)) return null;
             var result = XmlFiles.Read<PendingRestore>(path);
             if (String.IsNullOrWhiteSpace(result.DeviceId))
-                throw new InvalidDataException("The saved Hold recovery has no device identity.");
+                throw new InvalidDataException(Ui.Text("The saved Hold recovery has no device identity."));
             return result;
         }
         // Close and atomically publish before changing mute. OS caching preserves recovery

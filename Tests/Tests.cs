@@ -53,7 +53,7 @@ public class Fixture : IDisposable {
     public void Dispose() { C.Dispose(); }
 }
 
-public static class Tests {
+public static partial class Tests {
     private static int assertions, scenarios;
     private static void Assert(bool condition, string message) { assertions++; if (!condition) throw new Exception("Assertion " + assertions + ": " + message); }
     private static bool ExpectedPopup(NormalRule rule, bool muted) {
@@ -403,7 +403,7 @@ public static class Tests {
             string config = Path.Combine(directory, "settings.xml");
             File.WriteAllText(config, "<Settings><SchemaVersion>1</SchemaVersion><DeviceId>A</DeviceId><ToggleKey>119</ToggleKey><HoldKey>192</HoldKey></Settings>");
             var loaded = XmlFiles.Read<Settings>(config); loaded.Normalize();
-            Assert(loaded.SchemaVersion == 3 && !loaded.FileRecoveryEnabled && loaded.OfferAdministratorRestart && loaded.HoldKey == 192 && loaded.ToggleKey == 119,
+            Assert(loaded.SchemaVersion == 4 && !loaded.FileRecoveryEnabled && loaded.OfferAdministratorRestart && loaded.HoldKey == 192 && loaded.ToggleKey == 119,
                 "Older settings keep custom keys and adopt the new optional defaults");
             loaded.FileRecoveryEnabled = true; loaded.OfferAdministratorRestart = false; XmlFiles.Write(config, loaded);
             loaded = XmlFiles.Read<Settings>(config);
@@ -481,7 +481,7 @@ public static class Tests {
         try {
             File.WriteAllText(path, "<Settings><SchemaVersion>2</SchemaVersion><HoldKey>192</HoldKey><OfferAdministratorRestart>true</OfferAdministratorRestart><FileRecoveryEnabled>false</FileRecoveryEnabled></Settings>");
             var settings = XmlFiles.Read<Settings>(path); settings.Normalize();
-            Assert(settings.HoldKey == 192 && settings.BlockHoldKey && !settings.FileRecoveryEnabled && settings.OfferAdministratorRestart && settings.SchemaVersion == 3,
+            Assert(settings.HoldKey == 192 && settings.BlockHoldKey && !settings.FileRecoveryEnabled && settings.OfferAdministratorRestart && settings.SchemaVersion == 4,
                 "Build-4 settings upgrade preserves grave binding and enables Hold blocking");
             settings.BlockHoldKey = false; settings.BlockToggleKey = true; XmlFiles.Write(path, settings);
             settings = XmlFiles.Read<Settings>(path); Assert(!settings.BlockHoldKey && settings.BlockToggleKey, "Both blocking preferences persist");
@@ -680,17 +680,17 @@ public static class Tests {
             }
         } finally { if (File.Exists(path)) File.Delete(path); if (File.Exists(path + ".bak")) File.Delete(path + ".bak"); }
         Assert(KeyNames.Format(192, "Oemtilde") == "` / ~ (US)", "The user's grave binding has a readable, explicitly US-labelled caption");
-        Assert(KeyNames.Format(49, "D1") == "1" && KeyNames.Format(97, "NumPad1") == "Numpad 1", "Number row and numpad remain distinguishable in key captions");
-        Assert(KeyNames.Format(17, "ControlKey") == "Ctrl" && KeyNames.Format(162, "LControlKey") == "Left Ctrl" &&
-            KeyNames.Format(163, "RControlKey") == "Right Ctrl", "Generic and left/right modifiers keep distinct readable captions");
+        Assert(KeyNames.Format(49, "D1") == "1" && KeyNames.Format(97, "NumPad1") == Ui.Text("Numpad ") + "1", "Number row and numpad remain distinguishable in key captions");
+        Assert(KeyNames.Format(17, "ControlKey") == "Ctrl" && KeyNames.Format(162, "LControlKey") == Ui.Text("Left Ctrl") &&
+            KeyNames.Format(163, "RControlKey") == Ui.Text("Right Ctrl"), "Generic and left/right modifiers keep distinct readable captions");
         var assembly = typeof(Controller).Assembly;
-        Assert(assembly.GetName().Version.ToString() == "0.1.0.8" &&
-            ((AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(assembly, typeof(AssemblyInformationalVersionAttribute))).InformationalVersion == "0.1.0-beta.1",
+        Assert(assembly.GetName().Version.ToString() == "0.1.0.9" &&
+            ((AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(assembly, typeof(AssemblyInformationalVersionAttribute))).InformationalVersion == "0.1.0-beta.2",
             "Delivery assembly revision and public beta version agree");
     }
     public static int Main() {
         try {
-            Matrix(); FailureCases(); PreviewCases(); RandomSequences(); StorageAndInterop(); ImmediateInputCases(); OptionalRecoveryCases(); ElevationNoticeCases(); SuppressionCases(); PauseCases(); MasterBlockingCases();
+            Matrix(); FailureCases(); PreviewCases(); RandomSequences(); StorageAndInterop(); ImmediateInputCases(); OptionalRecoveryCases(); ElevationNoticeCases(); SuppressionCases(); PauseCases(); MasterBlockingCases(); ShortcutCases();
             Console.WriteLine("PASS: " + scenarios + " parameter combinations; 20,000 seeded actions; " + assertions + " assertions against the compiled production EXE.");
             Console.WriteLine("Real Windows Core Audio, global input/UAC, GUI/DPI, tray/taskbar, startup and games were not executed.");
             return 0;

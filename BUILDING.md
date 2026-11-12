@@ -1,39 +1,30 @@
-# Building APEIRON Global Mute Overlay
+# Building
 
-A standalone C# WinForms application targeting .NET Framework 4.x, Windows x64. No NuGet packages are required.
+C# WinForms, .NET Framework 4.x, Windows x64, no NuGet dependencies.
 
 ## Windows
 
-From the repository root:
+Run `build.cmd` to compile both languages, or `build.cmd test` to build and test both.
+The batch script explicitly uses UTF-8 source encoding and .NET Framework 4.x csc.
 
-```bat
-build.cmd
-build.cmd test
-```
+Outputs:
 
-The output is `Build/APEIRON_Global_Mute_Overlay.exe`. Tests reference that compiled executable.
+- `Build/EN/APEIRON_Global_Mute_Overlay.exe`
+- `Build/RU/APEIRON_Global_Mute_Overlay.exe`
 
-An optional Python runner is also available:
+The RU compiler define is `APEIRON_RU`. EN omits it. Both executables use the same settings path and instance mutex.
 
-```text
-python build.py --tests
-```
+With Python installed, `python build.py --language both --tests` is equivalent. Use `--language en` or `--language ru` for one build.
 
 ## Portable verification
 
-With a Mono prefix containing `usr/bin/mono-sgen`, framework assemblies and `etc/mono/config`:
+Supply a Mono prefix with `usr/bin/mono-sgen`, mcs, framework/GAC assemblies and `etc/mono/config`, plus mingw windres:
 
-```text
-python3 build.py --mono-root /absolute/mono/prefix --tests
-python3 Tests/verify_exe.py Build/APEIRON_Global_Mute_Overlay.exe
+```sh
+python3 build.py --mono-root /absolute/mono/prefix --language both --tests
 ```
 
-Portable tests use a fake audio backend. Real Windows audio, hooks, UAC and GUI require Windows validation. See TEST_REPORT.txt.
+Each test executable references its corresponding delivery EXE. `Tests/verify_exe.py` checks PE/resources/manifest metadata.
+Portable tests do not execute Windows audio, global hooks, UAC, games or GUI layout.
 
-## Source layout
-
-- Source: audio control, overlay, hotkeys, optional recovery and settings.
-- Assets: APEIRON icon and About image.
-- Tests: controller/input policy tests and executable resource inspection.
-
-The public version is 0.1.0-beta.1; numeric Windows metadata uses build revision 0.1.0.8. Runtime behavior matches RC1.
+Public version: 0.1.0-beta.2. Numeric Windows/assembly/manifest revision: 0.1.0.9.
