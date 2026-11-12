@@ -17,3 +17,5 @@ python3 Tests/UI/preview.py --mono-root /absolute/mono/prefix --run
 Mono cannot decode the PNG-compressed Windows ICO resource. The layout build substitutes a classic system icon while keeping the C# sources identical. The delivery EXE retains all seven original icon sizes and is independently checked by Tests/verify_exe.py.
 
 This preview does not validate Windows audio, native input, UAC, startup, Windows-specific rendering/DPI or game behavior.
+
+Pass `--binding-example pair` with `--run` to inspect a left/right Shift binding without starting hooks or capture.

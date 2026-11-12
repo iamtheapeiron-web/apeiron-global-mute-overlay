@@ -1,6 +1,6 @@
 from pathlib import Path
 import os,subprocess,argparse
-parser=argparse.ArgumentParser();parser.add_argument('--mono-root',type=Path,required=True);parser.add_argument('--run',action='store_true');args=parser.parse_args()
+parser=argparse.ArgumentParser();parser.add_argument('--mono-root',type=Path,required=True);parser.add_argument('--run',action='store_true');parser.add_argument('--binding-example',choices=['none','pair'],default='none');args=parser.parse_args()
 root=Path(__file__).resolve().parents[2];prefix=args.mono_root.resolve()
 gac=prefix/'usr/lib/mono/gac';libraries={d.name:next(d.glob('*/*.dll')) for d in gac.iterdir() if d.is_dir()}
 env=os.environ.copy();env['MONO_PATH']=os.pathsep.join([str(prefix/'usr/lib/mono/4.5')]+[str(p.parent) for p in libraries.values()]);env['LD_LIBRARY_PATH']=str(prefix/'usr/lib')
@@ -17,4 +17,4 @@ if not args.run:
  subprocess.run(compiler+['-codepage:65001','-define:APEIRON_RU','-target:winexe','-out:'+str(preview_app),'-resource:'+str(out/'compat.ico')+',APEIRON.ico','-resource:'+str(root/'Assets/APEIRON_icon.png')+',APEIRON_icon.png']+[str(p) for p in sorted((root/'Source').glob('*.cs'))],check=True,env=env)
  subprocess.run(compiler+['-out:'+str(test),'-r:'+str(preview_app),str(root/'Tests/UI/Preview.cs')],check=True,env=env)
 else:
- subprocess.run(mono+[str(test),str(root/'Build/PreviewData')],check=True,env=env)
+ subprocess.run(mono+[str(test),str(root/'Build/PreviewData'),args.binding_example],check=True,env=env)

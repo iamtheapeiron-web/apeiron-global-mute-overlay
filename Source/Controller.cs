@@ -236,8 +236,8 @@ namespace Apeiron.GlobalMute {
         }
         public bool ToggleEnabled { get { return !Paused && controller.Settings.ToggleEnabled; } }
         public bool HoldEnabled { get { return !Paused && controller.Settings.HoldEnabled; } }
-        public bool BlockToggleKey { get { return KeyBlockingEnabled && ToggleEnabled && controller.Settings.BlockToggleKey && KeySuppression.CanBlock(controller.Settings.ToggleKey); } }
-        public bool BlockHoldKey { get { return KeyBlockingEnabled && HoldEnabled && controller.Settings.BlockHoldKey && KeySuppression.CanBlock(controller.Settings.HoldKey); } }
+        public bool BlockToggleKey { get { return KeyBlockingEnabled && ToggleEnabled && KeySuppression.CanBlock(controller.Settings.ToggleKey); } }
+        public bool BlockHoldKey { get { return KeyBlockingEnabled && HoldEnabled && KeySuppression.CanBlock(controller.Settings.HoldKey); } }
         public InputRouter(Controller controller) { this.controller = controller; }
         public void SetPaused(bool paused, bool toggle, bool hold) {
             if (Paused == paused) return;

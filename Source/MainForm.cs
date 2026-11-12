@@ -40,7 +40,6 @@ namespace Apeiron.GlobalMute {
         private Label saveState;
         private CheckBox toggleEnabled, holdEnabled, autoStart, startMinimized;
         private CheckBox offerAdminRestart;
-        private CheckBox blockToggle, blockHold;
         private CheckBox pauseHotkeys, blockKeys;
         private Label blockingStatus;
         private CheckBox blockingShortcutEnabled;
@@ -237,27 +236,28 @@ namespace Apeiron.GlobalMute {
                 if (!initializing && pauseHotkeys.Checked != input.Paused) SetHotkeysPaused(pauseHotkeys.Checked);
             };
             var blocking = Group(page, "Key blocking");
-            blockKeys = Check("Block keys in other apps", input.KeyBlockingEnabled); Add(blocking, blockKeys);
+            blockKeys = Check("Block microphone keys in other apps", input.KeyBlockingEnabled); Add(blocking, blockKeys);
             blockingStatus = TextLabel(""); blockingStatus.Font = new Font(Font, FontStyle.Bold); Add(blocking, blockingStatus);
-            Add(blocking, TextLabel("With blocking enabled, the selected keys control the microphone but do not trigger actions in other apps."));
-            Hint(blockKeys, "Uses the individual Toggle and Hold choices below. Primary mouse clicks are never blocked. Save settings to keep the shared switch after restarting.");
+            Add(blocking, TextLabel("Blocking applies to all enabled microphone hotkeys. They control the microphone but do not trigger actions in other apps."));
+            Hint(blockKeys, "Disabled microphone hotkeys are not blocked. Primary mouse clicks are never blocked. Save settings to keep blocking after restarting.");
             blockKeys.CheckedChanged += delegate {
                 if (!initializing && blockKeys.Checked != input.KeyBlockingEnabled) SetKeyBlockingEnabled(blockKeys.Checked);
             };
             var shortcutRow = Flow();
-            blockingShortcutEnabled = Check("Use shortcut", settings.BlockingShortcutEnabled); shortcutRow.Controls.Add(blockingShortcutEnabled);
-            blockingBinding = TextLabel(BlockingShortcut.Format(settings.BlockingShortcutKey, settings.BlockingShortcutModifiers));
+            blockingShortcutEnabled = Check("Hotkey", settings.BlockingShortcutEnabled); shortcutRow.Controls.Add(blockingShortcutEnabled);
+            blockingBinding = TextLabel(BlockingShortcut.Format(settings.BlockingShortcutKey, settings.BlockingShortcutModifiers, settings.BlockingShortcutSecondKey));
             shortcutRow.Controls.Add(blockingBinding);
             assignBlockingButton = Button("Assign...", AssignBlockingShortcut); shortcutRow.Controls.Add(assignBlockingButton);
             clearBlockingButton = Button("Clear", ClearBlockingShortcut); shortcutRow.Controls.Add(clearBlockingButton); Add(blocking, shortcutRow);
             Hint(blockingShortcutEnabled, "The shortcut toggles shared key blocking. It stays reserved for this command even with blocking off. Pause hotkeys also pauses it.");
             Hint(blockingBinding, "The shortcut toggles shared key blocking. It stays reserved for this command even with blocking off. Pause hotkeys also pauses it.");
+            Hint(assignBlockingButton, "One key, a Ctrl/Alt/Shift combination, or both sides of Shift, Alt or Ctrl. For a pair, the first modifier keeps its normal action. Release both before repeating.");
             blockingShortcutEnabled.CheckedChanged += delegate {
                 if (initializing) return;
-                if (blockingShortcutEnabled.Checked && (!BlockingShortcut.IsValid(settings.BlockingShortcutKey, settings.BlockingShortcutModifiers) ||
-                    BlockingShortcut.Conflicts(settings, settings.BlockingShortcutModifiers))) {
+                if (blockingShortcutEnabled.Checked && (!BlockingShortcut.IsValid(settings.BlockingShortcutKey, settings.BlockingShortcutModifiers, settings.BlockingShortcutSecondKey) ||
+                    BlockingShortcut.Conflicts(settings, settings.BlockingShortcutKey, settings.BlockingShortcutModifiers, settings.BlockingShortcutSecondKey))) {
                     blockingShortcutEnabled.Checked = false;
-                    footer.Text = Ui.Text("Assign a valid combination first. Its modifiers cannot be enabled Toggle or Hold keys."); return;
+                    footer.Text = Ui.Text("Assign a hotkey that does not conflict with Toggle or Hold."); return;
                 }
                 settings.BlockingShortcutEnabled = blockingShortcutEnabled.Checked; SyncInput();
             };
@@ -266,26 +266,22 @@ namespace Apeiron.GlobalMute {
             toggleBinding = TextLabel(KeyName(settings.ToggleKey));
             var toggleRow = Flow(); var assignToggle = Button("Assign Toggle key", delegate { AssignKey(false); });
             toggleRow.Controls.Add(assignToggle); toggleRow.Controls.Add(toggleBinding); Add(toggle, toggleRow);
-            blockToggle = Check("Block Toggle key in other apps", settings.BlockToggleKey); Add(toggle, blockToggle);
             Hint(toggleEnabled, "Disabling this hotkey leaves microphone monitoring and the overlay active.");
             var hold = Group(page, "Hold Mode");
             holdEnabled = Check("Enable Hold Mode", settings.HoldEnabled); Add(hold, holdEnabled);
             holdBinding = TextLabel(KeyName(settings.HoldKey));
             var holdRow = Flow(); var assignHold = Button("Assign Hold key", delegate { AssignKey(true); });
             holdRow.Controls.Add(assignHold); holdRow.Controls.Add(holdBinding); Add(hold, holdRow);
-            blockHold = Check("Block Hold key in other apps", settings.BlockHoldKey); Add(hold, blockHold);
             Add(hold, TextLabel("Hold reverses the microphone state until release. Toggle is ignored during Hold."));
             Hint(holdEnabled, "Hold uses memory. Release or normal exit restores an available microphone. After an app crash, check the microphone state manually.");
             Hint(assignToggle, Ui.PunctuationHint); Hint(assignHold, Ui.PunctuationHint);
             Hint(toggleBinding, Ui.PunctuationHint); Hint(holdBinding, Ui.PunctuationHint);
-            blockToggle.CheckedChanged += delegate { if (!initializing) { settings.BlockToggleKey = blockToggle.Checked; BlockingChanged(); } };
-            blockHold.CheckedChanged += delegate { if (!initializing) { settings.BlockHoldKey = blockHold.Checked; BlockingChanged(); } };
             toggleEnabled.CheckedChanged += delegate { if (initializing) return; settings.ToggleEnabled = toggleEnabled.Checked; CheckKeyConflict(false); SyncInput(); };
             holdEnabled.CheckedChanged += delegate { if (initializing) return; settings.HoldEnabled = holdEnabled.Checked; CheckKeyConflict(true); controller.RulesChanged(); SyncInput(); Render(); };
         }
         private void ClearBlockingShortcut() {
             controller.ReleaseHold();
-            settings.BlockingShortcutEnabled = false; settings.BlockingShortcutKey = 0;
+            settings.BlockingShortcutEnabled = false; settings.BlockingShortcutKey = settings.BlockingShortcutSecondKey = 0;
             settings.BlockingShortcutModifiers = ShortcutModifiers.None;
             SyncInput(); Render(); UpdateStatus();
             footer.Text = Ui.Text("Shortcut cleared. Save settings to keep this change.");
@@ -296,25 +292,25 @@ namespace Apeiron.GlobalMute {
                 else { settings.ToggleEnabled = false; toggleEnabled.Checked = false; }
                 footer.Text = Ui.Text("Toggle and Hold need different keys. Assign another key before enabling both.");
             }
-            if (settings.BlockingShortcutEnabled && BlockingShortcut.Conflicts(settings, settings.BlockingShortcutModifiers)) {
+            if (settings.BlockingShortcutEnabled && BlockingShortcut.Conflicts(settings, settings.BlockingShortcutKey, settings.BlockingShortcutModifiers, settings.BlockingShortcutSecondKey)) {
                 if (changedHold) { settings.HoldEnabled = false; holdEnabled.Checked = false; }
                 else { settings.ToggleEnabled = false; toggleEnabled.Checked = false; }
-                footer.Text = Ui.Text("This key is a modifier of the key blocking shortcut. Change or disable that shortcut first.");
+                footer.Text = Ui.Text("This key conflicts with the blocking hotkey. Change or disable that hotkey first.");
             }
         }
         private void AssignBlockingShortcut() {
             controller.ReleaseHold(); capturing = true; ApeironGlobalInput.SetSuppressionBypass(true);
             try {
-                int key; ShortcutModifiers modifiers;
-                if (!KeyCapture.CaptureShortcut(this, out key, out modifiers)) return;
-                if (BlockingShortcut.Conflicts(settings, modifiers)) {
-                    footer.Text = Ui.Text("A modifier of this combination is already an enabled Toggle or Hold key. Choose another combination."); return;
+                int key, second; ShortcutModifiers modifiers;
+                if (!KeyCapture.CaptureShortcut(this, out key, out modifiers, out second)) return;
+                if (BlockingShortcut.Conflicts(settings, key, modifiers, second)) {
+                    footer.Text = Ui.Text("This hotkey conflicts with Toggle or Hold. Choose another key or combination."); return;
                 }
-                settings.BlockingShortcutKey = key; settings.BlockingShortcutModifiers = modifiers;
+                settings.BlockingShortcutKey = key; settings.BlockingShortcutModifiers = modifiers; settings.BlockingShortcutSecondKey = second;
                 settings.BlockingShortcutEnabled = true;
-                blockingBinding.Text = BlockingShortcut.Format(key, modifiers);
+                blockingBinding.Text = BlockingShortcut.Format(key, modifiers, second);
                 blockingShortcutEnabled.Checked = true;
-                footer.Text = Ui.Text("Combination applied. Save settings to keep it.");
+                footer.Text = Ui.Text("Blocking hotkey applied. Save settings to keep it.");
             } finally { capturing = false; ApeironGlobalInput.SetSuppressionBypass(false); SyncInput(); }
         }
         private void AssignKey(bool hold) {
@@ -324,8 +320,8 @@ namespace Apeiron.GlobalMute {
                 if (key == 0) return;
                 int other = hold ? settings.ToggleKey : settings.HoldKey;
                 if (key == other) { footer.Text = Ui.Text("This key is already assigned to ") + (hold ? Ui.Text("Toggle.") : Ui.Text("Hold.")); return; }
-                if (settings.BlockingShortcutEnabled && BlockingShortcut.UsesModifierKey(key, settings.BlockingShortcutModifiers)) {
-                    footer.Text = Ui.Text("This key is a modifier of the key blocking shortcut. Change or disable that shortcut first."); return;
+                if (settings.BlockingShortcutEnabled && BlockingShortcut.ConflictsWithAction(key, settings.BlockingShortcutKey, settings.BlockingShortcutModifiers, settings.BlockingShortcutSecondKey)) {
+                    footer.Text = Ui.Text("This key conflicts with the blocking hotkey. Change or disable that hotkey first."); return;
                 }
                 if (hold) { settings.HoldKey = key; holdBinding.Text = KeyName(key); }
                 else { settings.ToggleKey = key; toggleBinding.Text = KeyName(key); }
@@ -540,10 +536,6 @@ namespace Apeiron.GlobalMute {
             footer.Text = paused ? Ui.Text("Hotkeys paused.") : Ui.Text("Hotkeys resumed.");
             if (controller.HasPending && !controller.HoldActive) footer.Text += Ui.Text(" Hold recovery is pending for the selected microphone.");
         }
-        private void BlockingChanged() {
-            SyncInput();
-            footer.Text = Ui.Text("Blocking preference updated.");
-        }
         private void SetKeyBlockingEnabled(bool enabled) {
             input.KeyBlockingEnabled = enabled;
             // Do not clear the mailbox or re-seed input here: a Hold release or
@@ -556,14 +548,12 @@ namespace Apeiron.GlobalMute {
         private void UpdateHotkeyControls() {
             pauseHotkeys.Checked = input.Paused;
             blockKeys.Checked = input.KeyBlockingEnabled;
-            blockToggle.Enabled = settings.ToggleEnabled && KeySuppression.CanBlock(settings.ToggleKey);
-            blockHold.Enabled = settings.HoldEnabled && KeySuppression.CanBlock(settings.HoldKey);
             trayPause.Checked = input.Paused;
             trayBlocking.Checked = input.KeyBlockingEnabled;
-            bool assigned = BlockingShortcut.IsValid(settings.BlockingShortcutKey, settings.BlockingShortcutModifiers);
+            bool assigned = BlockingShortcut.IsValid(settings.BlockingShortcutKey, settings.BlockingShortcutModifiers, settings.BlockingShortcutSecondKey);
             blockingShortcutEnabled.Enabled = assigned;
             blockingShortcutEnabled.Checked = settings.BlockingShortcutEnabled;
-            blockingBinding.Text = BlockingShortcut.Format(settings.BlockingShortcutKey, settings.BlockingShortcutModifiers);
+            blockingBinding.Text = BlockingShortcut.Format(settings.BlockingShortcutKey, settings.BlockingShortcutModifiers, settings.BlockingShortcutSecondKey);
             assignBlockingButton.Text = Ui.Text(assigned ? "Change..." : "Assign..."); clearBlockingButton.Enabled = assigned;
             string status = InputStatusText.Blocking(input);
             blockingStatus.Text = status; trayBlocking.ToolTipText = status;
@@ -608,12 +598,11 @@ namespace Apeiron.GlobalMute {
                 Ui.Text("Windows mute: ") + (controller.Muted.HasValue ? controller.Muted.Value.ToString() : Ui.Text("Unknown")) + Environment.NewLine +
                 Ui.Text("Hold active: ") + controller.HoldActive + Environment.NewLine + Ui.Text("Hold recovery pending: ") + controller.HasPending + Environment.NewLine +
                 Ui.Text("Legacy recovery pending: ") + recovery.HasLegacyRecovery + Environment.NewLine +
-                Ui.Text("Block Toggle / Hold keys: ") + settings.BlockToggleKey + " / " + settings.BlockHoldKey + Environment.NewLine +
                 Ui.Text("Key blocking enabled: ") + input.KeyBlockingEnabled + Environment.NewLine +
                 Ui.Text("Effective Toggle / Hold blocking: ") + input.BlockToggleKey + " / " + input.BlockHoldKey + Environment.NewLine +
                 Ui.Text("Toggle / Hold binding: ") + KeyName(settings.ToggleKey) + " / " + KeyName(settings.HoldKey) + Environment.NewLine +
                 Ui.Text("Hotkeys paused: ") + input.Paused + Environment.NewLine +
-                Ui.Text("Key blocking shortcut: ") + BlockingShortcut.Format(settings.BlockingShortcutKey, settings.BlockingShortcutModifiers) +
+                Ui.Text("Key blocking shortcut: ") + BlockingShortcut.Format(settings.BlockingShortcutKey, settings.BlockingShortcutModifiers, settings.BlockingShortcutSecondKey) +
                     " / " + settings.BlockingShortcutEnabled + Environment.NewLine + Ui.Text("Language: ") + Ui.LanguageCode + Environment.NewLine +
                 Ui.Text("Hardware mute support: ") + controller.HardwareMute + Environment.NewLine + Ui.Text("Global hooks started: ") + hooksOkay + Environment.NewLine +
                 Ui.Text("Elevated: ") + (elevation.OwnElevation.HasValue ? elevation.OwnElevation.Value.ToString() : Ui.Text("Unknown")) + Environment.NewLine +
@@ -633,7 +622,7 @@ namespace Apeiron.GlobalMute {
         private void SyncInput() {
             ApeironGlobalInput.ClearPresses(); input.Sync(ApeironGlobalInput.IsActionKeyDown(settings.ToggleKey), ApeironGlobalInput.IsActionKeyDown(settings.HoldKey));
             ApeironGlobalInput.ConfigureWakeup(settings.ToggleKey, settings.HoldKey, input.ToggleEnabled, input.HoldEnabled, input.BlockToggleKey, input.BlockHoldKey,
-                settings.BlockingShortcutKey, settings.BlockingShortcutModifiers, settings.BlockingShortcutEnabled && !input.Paused, QueueControlInput);
+                settings.BlockingShortcutKey, settings.BlockingShortcutModifiers, settings.BlockingShortcutSecondKey, settings.BlockingShortcutEnabled && !input.Paused, QueueControlInput);
             UpdateHotkeyControls(); RefreshSaveState();
         }
         private void QueueControlInput() {
@@ -789,13 +778,13 @@ namespace Apeiron.GlobalMute {
     }
 
     internal static class KeyCapture {
-        internal static bool CaptureShortcut(Form owner, out int key, out ShortcutModifiers modifiers) {
-            int result = 0, upTicks = 0; bool armed = false;
+        internal static bool CaptureShortcut(Form owner, out int key, out ShortcutModifiers modifiers, out int second) {
+            int result = 0, selectedSecond = 0, upTicks = 0; bool armed = false;
             var selectedModifiers = ShortcutModifiers.None;
-            using (var dialog = new ShortcutCaptureDialog { Text = Ui.Text("Assign combination"), StartPosition = FormStartPosition.CenterParent,
+            using (var dialog = new ShortcutCaptureDialog { Text = Ui.Text("Assign blocking hotkey"), StartPosition = FormStartPosition.CenterParent,
                 ClientSize = new Size(460, 190), FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false })
             using (var timer = new Timer { Interval = 20 }) {
-                var label = new Label { Text = Ui.Text("Release all keys, then press Ctrl, Alt or Shift with a keyboard key. Esc cancels."),
+                var label = new Label { Text = Ui.Text("Release all keys. Then press one key, Ctrl/Alt/Shift with a key, or both left and right Shift, Alt or Ctrl. Esc cancels."),
                     Dock = DockStyle.Top, Height = 125, TextAlign = ContentAlignment.MiddleCenter, Padding = new Padding(16) };
                 var cancel = new Button { Text = Ui.Text("Cancel"), DialogResult = DialogResult.Cancel, Width = 130, Height = 32, Left = 165, Top = 140 };
                 dialog.Controls.Add(label); dialog.Controls.Add(cancel); dialog.CancelButton = cancel;
@@ -807,6 +796,13 @@ namespace Apeiron.GlobalMute {
                         if (!any) { timer.Stop(); dialog.DialogResult = DialogResult.OK; dialog.Close(); }
                         return;
                     }
+                    for (int left = 160; left <= 164; left += 2) {
+                        if (ApeironGlobalInput.IsDown(left) && ApeironGlobalInput.IsDown(left + 1)) {
+                            result = left; selectedSecond = left + 1;
+                            label.Text = BlockingShortcut.Format(result, selectedModifiers, selectedSecond) + "\r\n" + Ui.Text("Release all keys to confirm.");
+                            return;
+                        }
+                    }
                     var mods = ApeironGlobalInput.ReadModifiers();
                     for (int k = 8; k <= 254; k++) {
                         if (!BlockingShortcut.IsValid(k, mods) || !ApeironGlobalInput.IsDown(k)) continue;
@@ -815,7 +811,8 @@ namespace Apeiron.GlobalMute {
                     }
                 };
                 timer.Start(); bool accepted = dialog.ShowDialog(owner) == DialogResult.OK;
-                key = accepted ? result : 0; modifiers = accepted ? selectedModifiers : ShortcutModifiers.None; return accepted;
+                key = accepted ? result : 0; modifiers = accepted ? selectedModifiers : ShortcutModifiers.None;
+                second = accepted ? selectedSecond : 0; return accepted;
             }
         }
         private sealed class ShortcutCaptureDialog : Form {

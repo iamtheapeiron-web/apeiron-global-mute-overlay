@@ -8,7 +8,7 @@ namespace Apeiron.GlobalMute {
     public enum HoldRule { FollowNormal, Always, Hidden }
 
     public class Settings {
-        public int SchemaVersion = 5;
+        public int SchemaVersion = 6;
         public string DeviceId = "", DeviceName = "";
         public bool ToggleEnabled = true, HoldEnabled = true;
         public int ToggleKey = 120, HoldKey = 121;
@@ -20,10 +20,9 @@ namespace Apeiron.GlobalMute {
         public string MutedColor = "#D23B3B", OnColor = "#2FA866", IconColor = "#FFFFFF";
         public bool AutoStart = false, StartMinimized = false;
         public bool OfferAdministratorRestart = true;
-        public bool BlockToggleKey = false, BlockHoldKey = true;
         public bool KeyBlockingEnabled = false;
         public bool BlockingShortcutEnabled = false;
-        public int BlockingShortcutKey = 0;
+        public int BlockingShortcutKey = 0, BlockingShortcutSecondKey = 0;
         public ShortcutModifiers BlockingShortcutModifiers = ShortcutModifiers.None;
 
         // Keep the old stored opacity so an upgrade preserves the exact appearance.
@@ -34,15 +33,17 @@ namespace Apeiron.GlobalMute {
         }
 
         public void Normalize() {
-            SchemaVersion = 5;
+            SchemaVersion = 6;
             DeviceId = DeviceId ?? ""; DeviceName = DeviceName ?? "";
             if (ToggleKey < 1 || ToggleKey > 254) ToggleKey = 120;
             if (HoldKey < 1 || HoldKey > 254) HoldKey = 121;
             if (ToggleEnabled && HoldEnabled && ToggleKey == HoldKey) HoldEnabled = false;
-            if (!BlockingShortcut.IsValid(BlockingShortcutKey, BlockingShortcutModifiers)) {
-                BlockingShortcutEnabled = false; BlockingShortcutKey = 0; BlockingShortcutModifiers = ShortcutModifiers.None;
+            int left = BlockingShortcut.PairLeft(BlockingShortcutKey, BlockingShortcutSecondKey);
+            if (left != 0) { BlockingShortcutKey = left; BlockingShortcutSecondKey = left + 1; }
+            if (!BlockingShortcut.IsValid(BlockingShortcutKey, BlockingShortcutModifiers, BlockingShortcutSecondKey)) {
+                BlockingShortcutEnabled = false; BlockingShortcutKey = BlockingShortcutSecondKey = 0; BlockingShortcutModifiers = ShortcutModifiers.None;
             }
-            if (BlockingShortcut.Conflicts(this, BlockingShortcutModifiers)) BlockingShortcutEnabled = false;
+            if (BlockingShortcut.Conflicts(this, BlockingShortcutKey, BlockingShortcutModifiers, BlockingShortcutSecondKey)) BlockingShortcutEnabled = false;
             if (!Enum.IsDefined(typeof(NormalRule), Normal)) Normal = NormalRule.OnChange;
             if (!Enum.IsDefined(typeof(HoldRule), DuringHold)) DuringHold = HoldRule.Always;
             if (Double.IsNaN(PopupSeconds) || Double.IsInfinity(PopupSeconds)) PopupSeconds = 2.5;

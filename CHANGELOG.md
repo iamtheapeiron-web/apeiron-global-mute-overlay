@@ -1,3 +1,13 @@
+## 0.1.0-beta.4 RU
+
+- Unified blocking for all enabled mic hotkeys; removed individual Toggle/Hold blocking preferences.
+- Blocking command now supports a single ordinary key and L/R Shift, Alt or Ctrl pairs, alongside existing modifier combinations.
+- Pair commands fire once on completion and rearm after both sides are released; first side keeps normal behavior.
+- Conflicts reject ambiguous single mic/command keys and standalone mic modifiers used by an active command.
+- Preserve latched input routes, command queue parity and Hold recovery while changing blocking.
+- Migrate old individual settings to the saved master without resetting microphone, bindings or appearance.
+- RU executable revision 0.1.0.11, settings schema 6; expanded production-assembly tests and layout harness.
+
 # Changelog
 
 ## 0.1.0-beta.3 (RU iteration)

@@ -79,8 +79,8 @@ public static partial class Tests {
             string config = Path.Combine(directory, "settings.xml");
             File.WriteAllText(config, "<Settings><SchemaVersion>4</SchemaVersion><DeviceId>A</DeviceId><HoldKey>192</HoldKey><ToggleKey>119</ToggleKey><Opacity>45</Opacity><X>1824</X><Y>24</Y><FileRecoveryEnabled>true</FileRecoveryEnabled><BlockToggleKey>true</BlockToggleKey><BlockHoldKey>false</BlockHoldKey></Settings>");
             var loaded = XmlFiles.Read<Settings>(config); loaded.Normalize();
-            Assert(loaded.SchemaVersion == 5 && loaded.HoldKey == 192 && loaded.ToggleKey == 119 && loaded.DeviceId == "A" && loaded.Opacity == 45 &&
-                loaded.Transparency == 55 && loaded.X == 1824 && loaded.Y == 24 && loaded.BlockToggleKey && !loaded.BlockHoldKey && !loaded.KeyBlockingEnabled,
+            Assert(loaded.SchemaVersion == 6 && loaded.HoldKey == 192 && loaded.ToggleKey == 119 && loaded.DeviceId == "A" && loaded.Opacity == 45 &&
+                loaded.Transparency == 55 && loaded.X == 1824 && loaded.Y == 24 && !loaded.KeyBlockingEnabled,
                 "Beta.2 migration ignores old opt-in, preserves visuals/position/mic/bindings and defaults shared blocking off");
             XmlFiles.Write(config, loaded);
             Assert(!File.ReadAllText(config).Contains("FileRecoveryEnabled") && !File.ReadAllText(config).Contains("<Transparency>"), "Saved settings contain no removed option or duplicate alpha representation");
@@ -128,22 +128,22 @@ public static partial class Tests {
             Assert(!tracker.HasChanges(f.S), "Preview, mute actions, Hold and session pause never mark settings dirty");
             f.Router.SetPaused(false, false, false);
             Assert(InputStatusText.Blocking(f.Router) == Ui.Text("Key blocking off"), "Status reports actual default-off blocking");
-            f.Router.KeyBlockingEnabled = true; Assert(InputStatusText.Blocking(f.Router) == Ui.Text("Blocked: Hold"), "Status identifies the individually selected key");
-            f.S.BlockToggleKey = true; Assert(InputStatusText.Blocking(f.Router) == Ui.Text("Both keys blocked"), "Status reports both effective keys");
+            f.Router.KeyBlockingEnabled = true; Assert(InputStatusText.Blocking(f.Router) == Ui.Text("Both keys blocked"), "Status reports both enabled microphone keys");
+            f.S.ToggleEnabled = false; Assert(InputStatusText.Blocking(f.Router) == Ui.Text("Blocked: Hold"), "Only the enabled Hold key is blocked");
             f.S.ToggleEnabled = f.S.HoldEnabled = false;
-            Assert(InputStatusText.Blocking(f.Router) == Ui.Text("No keys selected for blocking"), "Enabled master with no effective keys is not reported as blocking");
+            Assert(InputStatusText.Blocking(f.Router) == Ui.Text("No active keys to block"), "Enabled master with no effective keys is not reported as blocking");
             f.Router.SetPaused(true, false, false);
             Assert(InputStatusText.Blocking(f.Router) == Ui.Text("Key blocking paused"), "Pause overrides effective blocking status");
         }
         string path = Path.Combine(Path.GetTempPath(), "apeiron-blocking-" + Guid.NewGuid().ToString("N") + ".xml");
         try {
             foreach (bool enabled in new[] { false, true }) {
-                settings = new Settings { KeyBlockingEnabled = enabled, BlockToggleKey = true, BlockHoldKey = false, Opacity = 5 };
+                settings = new Settings { KeyBlockingEnabled = enabled, Opacity = 5 };
                 XmlFiles.Write(path, settings); settings = XmlFiles.Read<Settings>(path); settings.Normalize();
                 using (var controller = new Controller(settings, new FakeAudio(), new Clock(), new MemoryJournal())) {
                     var router = new InputRouter(controller);
-                    Assert(router.KeyBlockingEnabled == enabled && !router.Paused && settings.BlockToggleKey && !settings.BlockHoldKey && settings.Transparency == 95,
-                        "Save/restart retains either master state, individual choices and 95% transparency while clearing pause");
+                    Assert(router.KeyBlockingEnabled == enabled && !router.Paused && settings.Transparency == 95,
+                        "Save/restart retains either master state and 95% transparency while clearing pause");
                 }
             }
         } finally { if (File.Exists(path)) File.Delete(path); if (File.Exists(path + ".bak")) File.Delete(path + ".bak"); }

@@ -166,8 +166,12 @@ public static class ApeironGlobalInput {
     }
     public static void ConfigureWakeup(int toggle, int hold, bool toggleEnabled, bool holdEnabled, bool blockToggle, bool blockHold,
         int shortcutKey, Apeiron.GlobalMute.ShortcutModifiers modifiers, bool shortcutEnabled, Action wakeup) {
+        ConfigureWakeup(toggle, hold, toggleEnabled, holdEnabled, blockToggle, blockHold, shortcutKey, modifiers, 0, shortcutEnabled, wakeup);
+    }
+    public static void ConfigureWakeup(int toggle, int hold, bool toggleEnabled, bool holdEnabled, bool blockToggle, bool blockHold,
+        int shortcutKey, Apeiron.GlobalMute.ShortcutModifiers modifiers, int shortcutSecondKey, bool shortcutEnabled, Action wakeup) {
         toggleKey = toggle; holdKey = hold;
-        shortcut.Configure(shortcutKey, modifiers, shortcutEnabled, IsDown(shortcutKey));
+        shortcut.Configure(shortcutKey, modifiers, shortcutSecondKey, shortcutEnabled, IsDown(shortcutKey), IsDown(shortcutSecondKey));
         bool td = IsActionKeyDown(toggle), hd = IsActionKeyDown(hold);
         suppression.Configure(toggle, hold, toggleEnabled, holdEnabled, blockToggle, blockHold, td, hd);
         input.Configure(toggle, hold, td, hd, wakeup);
@@ -190,7 +194,9 @@ public static class ApeironGlobalInput {
             passThrough = window != IntPtr.Zero && ApeironNative.GetWindowThreadProcessId(window, out pid) != 0 && pid == ownProcessId;
         }
         var modifiers = shortcut.NeedsModifiers(vk, down) ? ReadModifiers() : Apeiron.GlobalMute.ShortcutModifiers.None;
-        var command = shortcut.Process(vk, down, modifiers, passThrough, !bypassSuppression);
+        int partner = shortcut.PartnerToCheck(vk, down);
+        var command = shortcut.Process(vk, down, modifiers, passThrough, !bypassSuppression,
+            partner != 0 ? (bool?)IsDown(partner) : null);
         bool block = suppression.Process(vk, down, passThrough || command.SkipActions);
         if (!command.SkipActions) input.Record(vk, down);
         if (command.Triggered) input.RequestBlockingToggle();

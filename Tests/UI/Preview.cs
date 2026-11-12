@@ -19,7 +19,11 @@ internal static class Preview {
         Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
         var program = typeof(MainForm).Assembly.GetType("Apeiron.GlobalMute.Program");
         program.GetField("DataDir", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, Path.GetFullPath(args[0]));
-        using (var form = new MainForm(new Settings(), false, ""))
+        var settings = new Settings();
+        if (args.Length > 1 && args[1] == "pair") {
+            settings.BlockingShortcutEnabled = true; settings.BlockingShortcutKey = 160; settings.BlockingShortcutSecondKey = 161;
+        }
+        using (var form = new MainForm(settings, false, ""))
         using (var shell = new Form { Text = form.Text + " (layout preview)", Icon = form.Icon, Font = form.Font,
             AutoScaleMode = AutoScaleMode.Dpi, ClientSize = form.ClientSize, MinimumSize = form.MinimumSize, StartPosition = FormStartPosition.CenterScreen }) {
             ((NotifyIcon)typeof(MainForm).GetField("tray", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(form)).Visible = false;

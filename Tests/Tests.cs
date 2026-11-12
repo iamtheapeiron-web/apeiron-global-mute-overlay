@@ -355,7 +355,7 @@ public static partial class Tests {
         state.Observe(777, "Protected game", null); Assert(!state.Mismatch, "Inaccessible token stays unknown, not guessed elevated");
     }
     private static void SuppressionCases() {
-        Assert(new Settings().BlockHoldKey && !new Settings().BlockToggleKey, "Hold blocking defaults on; Toggle blocking remains optional");
+        Assert(!new Settings().KeyBlockingEnabled, "Unified microphone key blocking defaults off");
         var gate = new KeySuppression();
         gate.Configure(120, 192, true, true, false, true, false, false);
         Assert(gate.Process(192, true, false), "Grave key down blocked outside settings");
@@ -405,10 +405,10 @@ public static partial class Tests {
         try {
             File.WriteAllText(path, "<Settings><SchemaVersion>2</SchemaVersion><HoldKey>192</HoldKey><OfferAdministratorRestart>true</OfferAdministratorRestart><FileRecoveryEnabled>false</FileRecoveryEnabled></Settings>");
             var settings = XmlFiles.Read<Settings>(path); settings.Normalize();
-            Assert(settings.HoldKey == 192 && settings.BlockHoldKey && settings.OfferAdministratorRestart && settings.SchemaVersion == 5,
-                "Build-4 settings upgrade preserves grave binding and enables Hold blocking");
-            settings.BlockHoldKey = false; settings.BlockToggleKey = true; XmlFiles.Write(path, settings);
-            settings = XmlFiles.Read<Settings>(path); Assert(!settings.BlockHoldKey && settings.BlockToggleKey, "Both blocking preferences persist");
+            Assert(settings.HoldKey == 192 && !settings.KeyBlockingEnabled && settings.OfferAdministratorRestart && settings.SchemaVersion == 6,
+                "Old settings upgrade preserves grave binding and defaults unified blocking off");
+            settings.KeyBlockingEnabled = true; XmlFiles.Write(path, settings);
+            settings = XmlFiles.Read<Settings>(path); Assert(settings.KeyBlockingEnabled, "Unified blocking preference persists");
         } finally { if (File.Exists(path)) File.Delete(path); if (File.Exists(path + ".bak")) File.Delete(path + ".bak"); }
     }
     private static void PauseCases() {
@@ -416,19 +416,18 @@ public static partial class Tests {
         foreach (bool memoryMode in new[] { false, true })
         foreach (bool toggleOn in new[] { false, true })
         foreach (bool holdOn in new[] { false, true })
-        foreach (bool blockToggle in new[] { false, true })
-        foreach (bool blockHold in new[] { false, true }) {
+        foreach (bool master in new[] { false, true }) {
             scenarios++;
             using (var f = new Fixture(original, memoryMode)) {
                 f.S.ToggleEnabled = toggleOn; f.S.HoldEnabled = holdOn;
-                f.S.BlockToggleKey = blockToggle; f.S.BlockHoldKey = blockHold;
+                f.Router.KeyBlockingEnabled = master;
                 f.Router.Tick(false, true, false, true);
                 Assert(f.C.HoldActive == holdOn, "Hold enable preference applies before pause");
                 f.Router.SetPaused(true, false, true);
                 Assert(f.Router.Paused && !f.Router.ToggleEnabled && !f.Router.HoldEnabled, "Pause disables both effective hotkeys");
                 Assert(!f.C.HoldActive && !f.C.HasPending && f.A.Value == original, "Pause immediately restores either original Hold state");
                 Assert(f.S.ToggleEnabled == toggleOn && f.S.HoldEnabled == holdOn &&
-                    f.S.BlockToggleKey == blockToggle && f.S.BlockHoldKey == blockHold, "Pause preserves all four configured choices");
+                    f.Router.KeyBlockingEnabled == master, "Pause preserves enabled actions and unified blocking preference");
                 int writes = f.A.Writes, saves = f.Journal.Saves, clears = f.Journal.Clears;
                 for (int i = 0; i < 5; i++) {
                     f.Router.Tick(true, true, true, true); f.Router.Tick(false, false, false, false);
@@ -476,7 +475,7 @@ public static partial class Tests {
             }
         }
         using (var f = new Fixture(false, true)) {
-            f.S.HoldKey = 192; f.S.BlockToggleKey = true;
+            f.S.HoldKey = 192; f.Router.KeyBlockingEnabled = true;
             var gate = new KeySuppression();
             gate.Configure(120, 192, f.Router.ToggleEnabled, f.Router.HoldEnabled, true, true, false, false);
             Assert(gate.Process(192, true, false), "A pre-pause Hold press is blocked");
@@ -495,7 +494,7 @@ public static partial class Tests {
             f.Router.Tick(false, false, false, false);
             Assert(gate.Process(192, true, false), "The next post-resume press uses the saved blocking preference");
             f.Router.Tick(false, true, false, true);
-            f.S.BlockHoldKey = false;
+            f.Router.KeyBlockingEnabled = false;
             gate.Configure(120, 192, f.Router.ToggleEnabled, f.Router.HoldEnabled, true, false, false, true);
             Assert(f.C.HoldActive && gate.Process(192, false, false), "Turning off blocking keeps an active Hold and balances its release");
             f.Router.Tick(false, false, false, false);
@@ -513,19 +512,16 @@ public static partial class Tests {
         foreach (bool original in new[] { false, true })
         foreach (bool toggleOn in new[] { false, true })
         foreach (bool holdOn in new[] { false, true })
-        foreach (bool toggleBlock in new[] { false, true })
-        foreach (bool holdBlock in new[] { false, true })
         foreach (bool paused in new[] { false, true })
         foreach (bool master in new[] { false, true }) {
             scenarios++;
             using (var f = new Fixture(original, true)) {
                 f.S.HoldKey = 192; f.S.ToggleEnabled = toggleOn; f.S.HoldEnabled = holdOn;
-                f.S.BlockToggleKey = toggleBlock; f.S.BlockHoldKey = holdBlock;
                 f.Router.KeyBlockingEnabled = master; f.Router.SetPaused(paused, false, false);
                 var gate = new KeySuppression(); ConfigureBlocking(f, gate, false, false);
-                bool consumeToggle = !paused && master && toggleOn && toggleBlock;
-                bool consumeHold = !paused && master && holdOn && holdBlock;
-                Assert(gate.Process(120, true, false) == consumeToggle, "Global blocking routes a fresh Toggle press using the saved individual choice");
+                bool consumeToggle = !paused && master && toggleOn;
+                bool consumeHold = !paused && master && holdOn;
+                Assert(gate.Process(120, true, false) == consumeToggle, "Global blocking routes every enabled Toggle press");
                 f.Router.Tick(true, false, true, false);
                 bool normal = !paused && toggleOn ? !original : original;
                 Assert(f.A.Value == normal, "Global blocking never disables the Toggle action");
@@ -534,7 +530,7 @@ public static partial class Tests {
                 Assert(f.A.Writes == writes && gate.Process(120, false, false) == consumeToggle,
                     "Toggle repeats do not retrigger audio, and its release has matching routing");
                 f.Router.Tick(false, false, false, false);
-                Assert(gate.Process(192, true, false) == consumeHold, "Global blocking routes a fresh Hold press independently");
+                Assert(gate.Process(192, true, false) == consumeHold, "Global blocking routes every enabled Hold press");
                 f.Router.Tick(false, true, false, true);
                 bool active = !paused && holdOn;
                 Assert(f.C.HoldActive == active && f.A.Value == (active ? !normal : normal), "Global blocking never disables the Hold action");
@@ -543,19 +539,18 @@ public static partial class Tests {
                 Assert(!f.C.HoldActive && !f.C.HasPending && f.A.Value == normal, "Hold restores while master blocking is on or off");
                 writes = f.A.Writes; int saves = f.Journal.Saves, clears = f.Journal.Clears;
                 f.Router.KeyBlockingEnabled = !master; ConfigureBlocking(f, gate, false, false);
-                Assert(gate.Process(120, true, false) == (!paused && !master && toggleOn && toggleBlock) &&
-                    gate.Process(120, false, false) == (!paused && !master && toggleOn && toggleBlock), "Master switch updates Toggle routing for the next press");
-                Assert(gate.Process(192, true, false) == (!paused && !master && holdOn && holdBlock) &&
-                    gate.Process(192, false, false) == (!paused && !master && holdOn && holdBlock), "Master switch updates Hold routing for the next press");
+                Assert(gate.Process(120, true, false) == (!paused && !master && toggleOn) &&
+                    gate.Process(120, false, false) == (!paused && !master && toggleOn), "Master switch updates Toggle routing for the next press");
+                Assert(gate.Process(192, true, false) == (!paused && !master && holdOn) &&
+                    gate.Process(192, false, false) == (!paused && !master && holdOn), "Master switch updates Hold routing for the next press");
                 Assert(f.A.Writes == writes && f.Journal.Saves == saves && f.Journal.Clears == clears, "Changing master blocking performs no audio or recovery writes");
-                Assert(f.S.BlockToggleKey == toggleBlock && f.S.BlockHoldKey == holdBlock &&
-                    f.S.ToggleEnabled == toggleOn && f.S.HoldEnabled == holdOn, "Master and pause retain all individual preferences");
+                Assert(f.S.ToggleEnabled == toggleOn && f.S.HoldEnabled == holdOn, "Master and pause preserve microphone action preferences");
             }
         }
         foreach (bool original in new[] { false, true })
         foreach (bool blockBefore in new[] { false, true }) {
             using (var f = new Fixture(original, true)) {
-                f.S.HoldKey = 192; f.S.BlockToggleKey = true;
+                f.S.HoldKey = 192; f.Router.KeyBlockingEnabled = true;
                 f.Router.KeyBlockingEnabled = blockBefore;
                 var gate = new KeySuppression(); ConfigureBlocking(f, gate, false, false);
                 Assert(gate.Process(192, true, false) == blockBefore, "Initial Hold uses the current master routing");
@@ -585,21 +580,21 @@ public static partial class Tests {
             }
         }
         using (var f = new Fixture(false, true)) {
-            f.S.ToggleKey = 1; f.S.HoldKey = 4; f.S.BlockToggleKey = true;
+            f.S.ToggleKey = 1; f.S.HoldKey = 4; f.Router.KeyBlockingEnabled = true;
             Assert(!f.Router.BlockToggleKey && !f.Router.BlockHoldKey, "Master never makes primary mouse clicks blockable");
         }
         string path = Path.Combine(Path.GetTempPath(), "apeiron-rc-session-" + Guid.NewGuid().ToString("N") + ".xml");
         try {
             using (var f = new Fixture(false, true)) {
-                f.S.HoldKey = 192; f.S.ToggleKey = 119; f.S.BlockToggleKey = true; f.S.BlockHoldKey = false;
+                f.S.HoldKey = 192; f.S.ToggleKey = 119;
                 f.Router.KeyBlockingEnabled = false; f.Router.SetPaused(true, false, false);
                 XmlFiles.Write(path, f.S);
                 var loaded = XmlFiles.Read<Settings>(path); loaded.Normalize();
                 using (var fresh = new Controller(loaded, new FakeAudio(), new Clock(), new MemoryJournal())) {
                     var restarted = new InputRouter(fresh);
                     Assert(!restarted.Paused && !restarted.KeyBlockingEnabled, "A new session clears pause and restores saved master blocking");
-                    Assert(loaded.HoldKey == 192 && loaded.ToggleKey == 119 && loaded.BlockToggleKey && !loaded.BlockHoldKey,
-                        "Saving during pause/master bypass preserves actual key bindings and per-key preferences");
+                    Assert(loaded.HoldKey == 192 && loaded.ToggleKey == 119,
+                        "Saving during pause/master bypass preserves actual key bindings");
                 }
             }
         } finally { if (File.Exists(path)) File.Delete(path); if (File.Exists(path + ".bak")) File.Delete(path + ".bak"); }
@@ -608,13 +603,13 @@ public static partial class Tests {
         Assert(KeyNames.Format(17, "ControlKey") == "Ctrl" && KeyNames.Format(162, "LControlKey") == Ui.Text("Left Ctrl") &&
             KeyNames.Format(163, "RControlKey") == Ui.Text("Right Ctrl"), "Generic and left/right modifiers keep distinct readable captions");
         var assembly = typeof(Controller).Assembly;
-        Assert(assembly.GetName().Version.ToString() == "0.1.0.10" &&
-            ((AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(assembly, typeof(AssemblyInformationalVersionAttribute))).InformationalVersion == "0.1.0-beta.3",
+        Assert(assembly.GetName().Version.ToString() == "0.1.0.11" &&
+            ((AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(assembly, typeof(AssemblyInformationalVersionAttribute))).InformationalVersion == "0.1.0-beta.4",
             "Delivery assembly revision and public beta version agree");
     }
     public static int Main() {
         try {
-            Matrix(); FailureCases(); PreviewCases(); RandomSequences(); StorageAndInterop(); ImmediateInputCases(); MemoryRecoveryCases(); PresentationCases(); ElevationNoticeCases(); SuppressionCases(); PauseCases(); MasterBlockingCases(); ShortcutCases();
+            Matrix(); FailureCases(); PreviewCases(); RandomSequences(); StorageAndInterop(); ImmediateInputCases(); MemoryRecoveryCases(); PresentationCases(); ElevationNoticeCases(); SuppressionCases(); PauseCases(); MasterBlockingCases(); ShortcutCases(); UnifiedHotkeyCases();
             Console.WriteLine("PASS: " + scenarios + " parameter combinations; 20,000 seeded actions; " + assertions + " assertions against the compiled production EXE.");
             Console.WriteLine("Real Windows Core Audio, global input/UAC, GUI/DPI, tray/taskbar, startup and games were not executed.");
             return 0;

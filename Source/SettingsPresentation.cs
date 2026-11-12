@@ -50,7 +50,7 @@ namespace Apeiron.GlobalMute {
             return Ui.Text(input.Paused ? "Key blocking paused" :
                 !input.KeyBlockingEnabled ? "Key blocking off" :
                 input.BlockToggleKey && input.BlockHoldKey ? "Both keys blocked" :
-                input.BlockToggleKey ? "Blocked: Toggle" : input.BlockHoldKey ? "Blocked: Hold" : "No keys selected for blocking");
+                input.BlockToggleKey ? "Blocked: Toggle" : input.BlockHoldKey ? "Blocked: Hold" : "No active keys to block");
         }
     }
 }

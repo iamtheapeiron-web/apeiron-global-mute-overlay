@@ -6,7 +6,7 @@ public static partial class Tests {
     private static void ShortcutCases() {
         var ctrl = ShortcutModifiers.Control;
         var combination = ctrl | ShortcutModifiers.Shift;
-        Assert(!BlockingShortcut.IsValid(120, ShortcutModifiers.None), "A shortcut needs a modifier");
+        Assert(BlockingShortcut.IsValid(119, ShortcutModifiers.None), "An ordinary single command key is supported");
         Assert(!BlockingShortcut.IsValid(162, ctrl) && !BlockingShortcut.IsValid(1, ctrl), "No modifier-only or mouse shortcut");
         Assert(!BlockingShortcut.IsValid(27, ctrl) && !BlockingShortcut.IsValid(46, ctrl | ShortcutModifiers.Alt), "Cancel and secure attention keys cannot be assigned");
         Assert(!BlockingShortcut.IsValid(120, ShortcutModifiers.Windows), "Windows modifier is not offered");
@@ -67,7 +67,7 @@ public static partial class Tests {
         foreach (bool master in new[] { false, true }) {
             scenarios++;
             using (var f = new Fixture(original, true)) {
-                f.S.BlockToggleKey = f.S.BlockHoldKey = true; f.Router.KeyBlockingEnabled = master;
+                f.Router.KeyBlockingEnabled = master;
                 var shortcut = new BlockingShortcut(); shortcut.Configure(commandKey, ctrl, true, false);
                 var gate = new KeySuppression(); ConfigureBlocking(f, gate, false, false);
                 var box = new InputMailbox(f.Clock); box.Configure(120, 121, false, false, null);
@@ -107,9 +107,9 @@ public static partial class Tests {
         try {
             File.WriteAllText(path, "<Settings><SchemaVersion>3</SchemaVersion><DeviceId>A</DeviceId><DeviceName>Микрофон</DeviceName><ToggleKey>119</ToggleKey><HoldKey>192</HoldKey><Shape>Rounded square</Shape><BlockToggleKey>true</BlockToggleKey><BlockHoldKey>false</BlockHoldKey></Settings>");
             var settings = XmlFiles.Read<Settings>(path); settings.Normalize();
-            Assert(settings.SchemaVersion == 5 && settings.DeviceId == "A" && settings.DeviceName == "Микрофон" && settings.ToggleKey == 119 && settings.HoldKey == 192 &&
-                settings.BlockToggleKey && !settings.BlockHoldKey && settings.Shape == "Rounded square" && !settings.BlockingShortcutEnabled && settings.BlockingShortcutKey == 0,
-                "Beta1 migration preserves user mic/bindings/blocking/shape; new shortcut is unassigned");
+            Assert(settings.SchemaVersion == 6 && settings.DeviceId == "A" && settings.DeviceName == "Микрофон" && settings.ToggleKey == 119 && settings.HoldKey == 192 &&
+                !settings.KeyBlockingEnabled && settings.Shape == "Rounded square" && !settings.BlockingShortcutEnabled && settings.BlockingShortcutKey == 0,
+                "Beta1 migration preserves mic/bindings/shape; unified blocking is off and command unassigned");
             settings.BlockingShortcutKey = 120; settings.BlockingShortcutModifiers = combination; settings.BlockingShortcutEnabled = true;
             XmlFiles.Write(path, settings); settings = XmlFiles.Read<Settings>(path); settings.Normalize();
             Assert(settings.BlockingShortcutEnabled && settings.BlockingShortcutKey == 120 && settings.BlockingShortcutModifiers == combination,
