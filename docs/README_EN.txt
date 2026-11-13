@@ -98,7 +98,8 @@ the desktop indicator. This is an unsigned beta.
 
 Automated tests use a fake audio backend; the layout was inspected under Mono/Linux.
 Real Windows audio, global hooks, hotkey capture, UAC and games were not tested here.
-See WINDOWS_CHECKLIST.txt for a short Windows check.
+Short Windows checklist:
+https://github.com/iamtheapeiron-web/apeiron-global-mute-overlay/blob/main/docs/WINDOWS_CHECKLIST_EN.txt
 For feedback, include your actions, expected/actual result, Windows, device and game,
 and, if possible, General - Copy diagnostics.
 Settings: %LOCALAPPDATA%\APEIRON_Global_Mute_Overlay

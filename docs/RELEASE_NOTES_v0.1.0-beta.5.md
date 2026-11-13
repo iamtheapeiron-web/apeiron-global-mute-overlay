@@ -11,6 +11,8 @@ Choose the language in the archive name:
 
 Windows 10/11 x64. The two builds have the same features and share settings. There is no in-app language switch.
 
+Each archive contains only the EXE, a short `README.txt` and `LICENSE.txt`. Full instructions and test materials are available in the repository.
+
 ## Changes since the first public beta
 
 - Separate English and Russian builds.
@@ -42,7 +44,8 @@ Report steps, expected/actual result, Windows version, microphone and game/app i
 
 Exclusive audio access can bypass software mute. Exclusive fullscreen or protected games can affect indicator visibility or key delivery. Elevated games may require running the app with matching privileges.
 
-## Verification
+<details>
+<summary>File verification / Проверка файлов</summary>
 
 SHA256 of the EXE inside each archive:
 
@@ -56,7 +59,9 @@ b9aa71bb13618b7006aa40734910c13f1f83cc522cd025ceb977cadba997a45f
 e63c8f5e5fb8258d011f38793f0a252adf16a9614d03034f9160be9aa514c82e
 ```
 
-Each archive also contains `SHA256SUMS.txt`, instructions and a short Windows checklist.
+Optional checks compare the EXE with the published build. [Test report](https://github.com/iamtheapeiron-web/apeiron-global-mute-overlay/blob/main/TEST_REPORT.txt) and Windows checklists are available in the repository.
+
+</details>
 
 ---
 

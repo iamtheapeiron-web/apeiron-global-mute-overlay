@@ -113,7 +113,8 @@ v0.1.0-beta.5 | RU | Windows 10 / 11, 64-разрядная система
 Автоматические проверки используют тестовый аудиобэкенд.
 Размещение элементов осмотрено в тестовом окне Mono/Linux.
 Реальные Windows-аудио, перехват клавиш, UAC и игры здесь не проверялись.
-Короткая проверка: ПРОВЕРКА_WINDOWS.txt.
+Короткая проверка Windows:
+https://github.com/iamtheapeiron-web/apeiron-global-mute-overlay/blob/main/docs/WINDOWS_CHECKLIST_RU.txt
 При ошибке: действие, ожидание, результат, Windows, микрофон, игра
 и по возможности «Общие» - «Скопировать диагностику».
 Настройки: %LOCALAPPDATA%\APEIRON_Global_Mute_Overlay
