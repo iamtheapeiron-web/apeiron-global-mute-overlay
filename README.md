@@ -1,5 +1,22 @@
 # APEIRON Global Mute Overlay
 
+**Know whether your microphone is muted without leaving your game or call.**
+
+A free, open-source Windows utility for controlling the mute state of a selected microphone and displaying a customizable on-screen indicator. Designed for gamers, streamers and people who use voice chat.
+
+[Download the latest beta (English or Russian)](https://github.com/iamtheapeiron-web/apeiron-global-mute-overlay/releases/tag/v0.1.0-beta.5) · [Report an issue or suggest a feature](https://github.com/iamtheapeiron-web/apeiron-global-mute-overlay/issues)
+
+## Why use it?
+
+- Toggle microphone mute with a global hotkey.
+- Temporarily reverse the mute state while holding a key, then restore it on release.
+- Customize the indicator's appearance and visibility.
+- Control the selected Windows microphone without switching to another application.
+
+**Beta notice:** Compatibility with every game, voice application and anti-cheat system is not guaranteed. Test your setup before relying on the overlay during a live stream or important call.
+
+## Current release
+
 **0.1.0-beta.5** - separate RU and EN builds for Windows 10/11 x64. MIT.
 The archive filename identifies the language; no in-app language switch.
 
